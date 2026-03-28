@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>업무 공지사항</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      color: #333;
+    }
+
+    /* Header */
+    header {
+      background: #1e3a5f;
+      color: white;
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+
+    header span {
+      font-size: 13px;
+      opacity: 0.75;
+    }
+
+    /* Main layout */
+    .container {
+      max-width: 960px;
+      margin: 32px auto;
+      padding: 0 16px;
+    }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .toolbar-left {
+      display: flex;
+      gap: 8px;
+    }
+
+    .filter-btn {
+      padding: 6px 16px;
+      border: 1px solid #ccc;
+      border-radius: 20px;
+      background: white;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .filter-btn.active, .filter-btn:hover {
+      background: #1e3a5f;
+      color: white;
+      border-color: #1e3a5f;
+    }
+
+    .search-box {
+      display: flex;
+      gap: 6px;
+    }
+
+    .search-box input {
+      padding: 6px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+      width: 200px;
+    }
+
+    .search-box input:focus {
+      border-color: #1e3a5f;
+    }
+
+    /* Notice list */
+    .notice-list {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .notice-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 18px 24px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      transition: background 0.15s;
+      gap: 14px;
+    }
+
+    .notice-item:last-child { border-bottom: none; }
+    .notice-item:hover { background: #f7f9fc; }
+
+    .badge {
+      flex-shrink: 0;
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+
+    .badge.important { background: #ffe0e0; color: #c0392b; }
+    .badge.general   { background: #e0eeff; color: #1e3a5f; }
+    .badge.event     { background: #e8f8e8; color: #27ae60; }
+    .badge.hr        { background: #fef3cd; color: #b8860b; }
+
+    .notice-content { flex: 1; }
+
+    .notice-title {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .notice-title .new-tag {
+      font-size: 10px;
+      background: #e74c3c;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .notice-meta {
+      font-size: 12px;
+      color: #888;
+      display: flex;
+      gap: 16px;
+    }
+
+    .notice-right {
+      flex-shrink: 0;
+      text-align: right;
+      font-size: 12px;
+      color: #aaa;
+    }
+
+    .notice-right .date { display: block; margin-bottom: 4px; }
+    .notice-right .views { font-size: 11px; }
+
+    /* Pinned notice */
+    .notice-item.pinned {
+      background: #f0f5ff;
+      border-left: 4px solid #1e3a5f;
+    }
+
+    .pin-icon {
+      font-size: 12px;
+      color: #1e3a5f;
+      margin-right: 2px;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      margin-top: 24px;
+      gap: 6px;
+    }
+
+    .page-btn {
+      width: 34px;
+      height: 34px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .page-btn.active {
+      background: #1e3a5f;
+      color: white;
+      border-color: #1e3a5f;
+    }
+
+    .page-btn:hover:not(.active) { background: #f0f2f5; }
+
+    /* Modal overlay */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: white;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 640px;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+
+    .modal-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .modal-title-wrap .modal-badge { margin-bottom: 8px; display: inline-block; }
+
+    .modal-title-wrap h2 { font-size: 18px; font-weight: 600; }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      color: #888;
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 20px 24px;
+      font-size: 14px;
+      line-height: 1.8;
+      color: #444;
+    }
+
+    .modal-footer {
+      padding: 12px 24px;
+      border-top: 1px solid #eee;
+      font-size: 12px;
+      color: #aaa;
+      display: flex;
+      justify-content: space-between;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>업무 공지사항</h1>
+  <span>DEMO v0.1</span>
+</header>
+
+<div class="container">
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <button class="filter-btn active" onclick="filterNotices('all', this)">전체</button>
+      <button class="filter-btn" onclick="filterNotices('important', this)">중요</button>
+      <button class="filter-btn" onclick="filterNotices('general', this)">일반</button>
+      <button class="filter-btn" onclick="filterNotices('hr', this)">인사</button>
+      <button class="filter-btn" onclick="filterNotices('event', this)">행사</button>
+    </div>
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="공지사항 검색..." oninput="searchNotices()">
+    </div>
+  </div>
+
+  <div class="notice-list" id="noticeList"></div>
+
+  <div class="pagination">
+    <button class="page-btn">&lt;</button>
+    <button class="page-btn active">1</button>
+    <button class="page-btn">2</button>
+    <button class="page-btn">3</button>
+    <button class="page-btn">&gt;</button>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <span class="badge modal-badge" id="modalBadge"></span>
+        <h2 id="modalTitle"></h2>
+      </div>
+      <button class="modal-close" onclick="closeModalDirect()">&#x2715;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <span id="modalAuthor"></span>
+      <span id="modalDate"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const notices = [
+    {
+      id: 1,
+      category: "important",
+      pinned: true,
+      isNew: true,
+      title: "[필독] 2026년 1분기 보안 정책 업데이트 안내",
+      author: "정보보안팀",
+      date: "2026-03-28",
+      views: 312,
+      body: `안녕하세요. 정보보안팀입니다.\n\n2026년 1분기 보안 정책이 아래와 같이 업데이트되었습니다.\n\n1. 비밀번호 변경 주기: 90일 → 60일\n2. 외부망 접속 시 VPN 필수 사용\n3. 개인 USB 사용 금지 (보안 USB만 허용)\n\n위 사항을 반드시 준수해주시기 바랍니다.\n위반 시 사규에 따라 징계 처리될 수 있습니다.`
+    },
+    {
+      id: 2,
+      category: "hr",
+      pinned: true,
+      isNew: false,
+      title: "[인사] 2026년 상반기 정기 인사발령 공고",
+      author: "인사팀",
+      date: "2026-03-25",
+      views: 891,
+      body: `2026년 상반기 정기 인사발령을 다음과 같이 공고합니다.\n\n- 발령일: 2026년 4월 1일\n- 대상: 전 직원\n- 세부 내용은 사내 인트라넷 인사발령 게시판을 참고하시기 바랍니다.\n\n문의사항은 인사팀(내선 1234)으로 연락 주시기 바랍니다.`
+    },
+    {
+      id: 3,
+      category: "general",
+      pinned: false,
+      isNew: true,
+      title: "사무용품 신청 방법 변경 안내 (4월부터 적용)",
+      author: "총무팀",
+      date: "2026-03-27",
+      views: 145,
+      body: `안녕하세요. 총무팀입니다.\n\n4월 1일부터 사무용품 신청 방법이 아래와 같이 변경됩니다.\n\n[기존] 이메일 신청\n[변경] 사내 포털 > 총무신청 > 사무용품 신청\n\n신청 마감은 매월 20일이며, 익월 5일 지급됩니다.\n기존 이메일 신청은 3월 31일부로 종료됩니다.`
+    },
+    {
+      id: 4,
+      category: "event",
+      pinned: false,
+      isNew: true,
+      title: "2026 상반기 워크숍 일정 및 참가 신청 안내",
+      author: "기획팀",
+      date: "2026-03-26",
+      views: 234,
+      body: `안녕하세요. 기획팀입니다.\n\n2026 상반기 전사 워크숍 일정을 안내드립니다.\n\n- 일시: 2026년 5월 15일(금) ~ 16일(토)\n- 장소: 강원도 춘천 리조트\n- 참가 대상: 전 직원\n- 신청 기간: 4월 1일 ~ 4월 14일\n\n사내 포털에서 신청 가능합니다. 많은 참여 부탁드립니다!`
+    },
+    {
+      id: 5,
+      category: "general",
+      pinned: false,
+      isNew: false,
+      title: "사내 식당 운영시간 변경 안내 (3월 30일부터)",
+      author: "복리후생팀",
+      date: "2026-03-22",
+      views: 567,
+      body: `3월 30일부터 사내 식당 운영시간이 변경됩니다.\n\n[조식] 07:30 ~ 09:00\n[중식] 11:30 ~ 13:30\n[석식] 17:30 ~ 19:00 (기존 18:30 종료 → 19:00으로 연장)\n\n석식 이용 시 사전 예약(당일 15시까지)이 필요합니다.`
+    },
+    {
+      id: 6,
+      category: "important",
+      pinned: false,
+      isNew: false,
+      title: "[긴급] 사내 네트워크 점검 안내 (3/29 새벽)",
+      author: "IT인프라팀",
+      date: "2026-03-21",
+      views: 422,
+      body: `안녕하세요. IT인프라팀입니다.\n\n긴급 네트워크 점검이 예정되어 있으니 업무에 참고 바랍니다.\n\n- 일시: 2026년 3월 29일(토) 01:00 ~ 04:00\n- 영향 범위: 사내 인터넷, VPN, 사내 포털 전체\n- 사유: 네트워크 장비 펌웨어 업그레이드\n\n점검 시간 동안 해당 서비스를 이용하실 수 없습니다.`
+    },
+    {
+      id: 7,
+      category: "hr",
+      pinned: false,
+      isNew: false,
+      title: "2026년 하계 휴가 신청 일정 안내",
+      author: "인사팀",
+      date: "2026-03-18",
+      views: 703,
+      body: `2026년 하계 휴가 신청 일정을 안내드립니다.\n\n- 신청 기간: 4월 7일 ~ 4월 18일\n- 휴가 사용 기간: 7월 1일 ~ 8월 31일\n- 신청 방법: 사내 포털 > 근태관리 > 휴가신청\n\n팀별 최소 운영 인원을 고려하여 신청해주시기 바랍니다.\n자세한 사항은 인사팀으로 문의 바랍니다.`
+    },
+  ];
+
+  const categoryLabel = {
+    important: ["중요", "important"],
+    general:   ["일반", "general"],
+    event:     ["행사", "event"],
+    hr:        ["인사", "hr"],
+  };
+
+  let currentFilter = 'all';
+
+  function renderNotices(list) {
+    const container = document.getElementById('noticeList');
+    if (list.length === 0) {
+      container.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa;">검색 결과가 없습니다.</div>';
+      return;
+    }
+    container.innerHTML = list.map(n => {
+      const [label, cls] = categoryLabel[n.category];
+      return `
+        <div class="notice-item ${n.pinned ? 'pinned' : ''}" onclick="openModal(${n.id})">
+          <span class="badge ${cls}">${n.pinned ? '📌 ' : ''}${label}</span>
+          <div class="notice-content">
+            <div class="notice-title">
+              ${n.title}
+              ${n.isNew ? '<span class="new-tag">NEW</span>' : ''}
+            </div>
+            <div class="notice-meta">
+              <span>${n.author}</span>
+              <span>조회 ${n.views}</span>
+            </div>
+          </div>
+          <div class="notice-right">
+            <span class="date">${n.date}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function filterNotices(category, btn) {
+    currentFilter = category;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyFilter();
+  }
+
+  function searchNotices() { applyFilter(); }
+
+  function applyFilter() {
+    const keyword = document.getElementById('searchInput').value.toLowerCase();
+    let result = notices;
+    if (currentFilter !== 'all') result = result.filter(n => n.category === currentFilter);
+    if (keyword) result = result.filter(n => n.title.toLowerCase().includes(keyword) || n.author.includes(keyword));
+    renderNotices(result);
+  }
+
+  function openModal(id) {
+    const n = notices.find(x => x.id === id);
+    if (!n) return;
+    const [label, cls] = categoryLabel[n.category];
+    document.getElementById('modalBadge').textContent = label;
+    document.getElementById('modalBadge').className = `badge modal-badge ${cls}`;
+    document.getElementById('modalTitle').textContent = n.title;
+    document.getElementById('modalBody').innerHTML = n.body.replace(/\n/g, '<br>');
+    document.getElementById('modalAuthor').textContent = '작성자: ' + n.author;
+    document.getElementById('modalDate').textContent = n.date;
+    document.getElementById('modalOverlay').classList.add('open');
+  }
+
+  function closeModal(e) {
+    if (e.target === document.getElementById('modalOverlay')) closeModalDirect();
+  }
+
+  function closeModalDirect() {
+    document.getElementById('modalOverlay').classList.remove('open');
+  }
+
+  // Initial render
+  renderNotices(notices);
+</script>
+</body>
+</html>
