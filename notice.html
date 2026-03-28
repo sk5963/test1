@@ -623,7 +623,59 @@
 <script>
   // ===== DATA =====
   const ITEMS_PER_PAGE = 8;
-  let notices = [];
+  const SAMPLE_NOTICES = [
+    {
+      id: 1,
+      category: 'important', pinned: true, isNew: true,
+      title: '[필독] 2026년 1분기 보안 정책 업데이트 안내',
+      author: '정보보안팀', date: '2026-03-28', views: 312,
+      body: `<p>안녕하세요. 정보보안팀입니다.</p><p>2026년 1분기 보안 정책이 아래와 같이 업데이트되었습니다.</p><ol><li><b>비밀번호 변경 주기:</b> 90일 → 60일</li><li><b>외부망 접속 시 VPN 필수 사용</b></li><li><b>개인 USB 사용 금지</b> (보안 USB만 허용)</li></ol><p><span style="color:#c0392b;font-weight:bold;">위반 시 사규에 따라 징계 처리될 수 있습니다.</span></p>`
+    },
+    {
+      id: 2,
+      category: 'hr', pinned: true, isNew: false,
+      title: '[인사] 2026년 상반기 정기 인사발령 공고',
+      author: '인사팀', date: '2026-03-25', views: 891,
+      body: `<p>2026년 상반기 정기 인사발령을 다음과 같이 공고합니다.</p><ul><li>발령일: <b>2026년 4월 1일</b></li><li>대상: 전 직원</li></ul><p>문의사항은 인사팀(내선 1234)으로 연락 주시기 바랍니다.</p>`
+    },
+    {
+      id: 3,
+      category: 'general', pinned: false, isNew: true,
+      title: '사무용품 신청 방법 변경 안내 (4월부터 적용)',
+      author: '총무팀', date: '2026-03-27', views: 145,
+      body: `<p>4월 1일부터 사무용품 신청 방법이 변경됩니다.</p><p><s>기존: 이메일 신청</s><br><b>변경: 사내 포털 &gt; 총무신청 &gt; 사무용품 신청</b></p><p>신청 마감은 매월 20일이며, 익월 5일 지급됩니다.</p>`
+    },
+    {
+      id: 4,
+      category: 'event', pinned: false, isNew: true,
+      title: '2026 상반기 워크숍 일정 및 참가 신청 안내',
+      author: '기획팀', date: '2026-03-26', views: 234,
+      body: `<p>2026 상반기 전사 워크숍 일정을 안내드립니다.</p><ul><li>일시: <b>2026년 5월 15일(금) ~ 16일(토)</b></li><li>장소: 강원도 춘천 리조트</li><li>신청 기간: 4월 1일 ~ 4월 14일</li></ul><p><span style="color:#27ae60;">많은 참여 부탁드립니다!</span></p>`
+    },
+    {
+      id: 5,
+      category: 'general', pinned: false, isNew: false,
+      title: '사내 식당 운영시간 변경 안내 (3월 30일부터)',
+      author: '복리후생팀', date: '2026-03-22', views: 567,
+      body: `<p>3월 30일부터 사내 식당 운영시간이 변경됩니다.</p><p>조식 07:30~09:00 / 중식 11:30~13:30 / <b>석식 17:30~19:00</b> (연장)</p><p>석식 이용 시 <span style="color:#e67e22;">당일 15시까지 사전 예약</span> 필요합니다.</p>`
+    },
+    {
+      id: 6,
+      category: 'important', pinned: false, isNew: false,
+      title: '[긴급] 사내 네트워크 점검 안내 (3/29 새벽)',
+      author: 'IT인프라팀', date: '2026-03-21', views: 422,
+      body: `<p>긴급 네트워크 점검이 예정되어 있으니 업무에 참고 바랍니다.</p><ul><li>일시: <b>2026년 3월 29일(토) 01:00 ~ 04:00</b></li><li>영향 범위: 사내 인터넷, VPN, 사내 포털 전체</li></ul><p><span style="color:#c0392b;">점검 시간 동안 해당 서비스를 이용하실 수 없습니다.</span></p>`
+    },
+    {
+      id: 7,
+      category: 'hr', pinned: false, isNew: false,
+      title: '2026년 하계 휴가 신청 일정 안내',
+      author: '인사팀', date: '2026-03-18', views: 703,
+      body: `<p>2026년 하계 휴가 신청 일정을 안내드립니다.</p><ul><li>신청 기간: <b>4월 7일 ~ 4월 18일</b></li><li>휴가 사용 기간: 7월 1일 ~ 8월 31일</li></ul><p>팀별 최소 운영 인원을 고려하여 신청해주시기 바랍니다.</p>`
+    },
+  ];
+
+  let notices = [...SAMPLE_NOTICES];
   let currentFilter = 'all';
   let currentPage = 1;
   let nextId = 100;
@@ -662,10 +714,11 @@
         }));
 
         notices = imported;
+        nextId = Math.max(...imported.map(n => n.id)) + 1;
         currentPage = 1;
         applyFilter();
         document.getElementById('fileNameDisplay').textContent =
-          `✅ ${file.name} — ${imported.length}건 불러옴`;
+          `✅ ${file.name} — ${imported.length}건 불러옴 (샘플 데이터 대체됨)`;
       } catch(err) {
         document.getElementById('fileNameDisplay').textContent = '❌ 파일 읽기 실패: ' + err.message;
       }
@@ -881,7 +934,7 @@
     const editor = document.getElementById('rtEditor');
     editor.addEventListener('mouseup', saveSelection);
     editor.addEventListener('keyup', saveSelection);
-    renderNotices([]);
+    applyFilter();
   });
 
   function escHtml(str) {
