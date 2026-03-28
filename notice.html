@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>업무 공지사항</title>
+  <!-- SheetJS for xlsx/csv parsing -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -23,19 +25,9 @@
       align-items: center;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
     }
+    header h1 { font-size: 20px; font-weight: 600; letter-spacing: 1px; }
+    header span { font-size: 13px; opacity: 0.75; }
 
-    header h1 {
-      font-size: 20px;
-      font-weight: 600;
-      letter-spacing: 1px;
-    }
-
-    header span {
-      font-size: 13px;
-      opacity: 0.75;
-    }
-
-    /* Main layout */
     .container {
       max-width: 960px;
       margin: 32px auto;
@@ -51,11 +43,7 @@
       flex-wrap: wrap;
       gap: 10px;
     }
-
-    .toolbar-left {
-      display: flex;
-      gap: 8px;
-    }
+    .toolbar-left { display: flex; gap: 8px; flex-wrap: wrap; }
 
     .filter-btn {
       padding: 6px 16px;
@@ -66,17 +54,13 @@
       font-size: 13px;
       transition: all 0.2s;
     }
-
     .filter-btn.active, .filter-btn:hover {
       background: #1e3a5f;
       color: white;
       border-color: #1e3a5f;
     }
 
-    .search-box {
-      display: flex;
-      gap: 6px;
-    }
+    .toolbar-right { display: flex; gap: 8px; align-items: center; }
 
     .search-box input {
       padding: 6px 12px;
@@ -84,12 +68,59 @@
       border-radius: 6px;
       font-size: 13px;
       outline: none;
-      width: 200px;
+      width: 180px;
     }
+    .search-box input:focus { border-color: #1e3a5f; }
 
-    .search-box input:focus {
-      border-color: #1e3a5f;
+    .btn-primary {
+      padding: 7px 16px;
+      background: #1e3a5f;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
     }
+    .btn-primary:hover { background: #16304f; }
+
+    .btn-outline {
+      padding: 7px 14px;
+      background: white;
+      color: #1e3a5f;
+      border: 1px solid #1e3a5f;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .btn-outline:hover { background: #f0f5ff; }
+
+    /* File import area */
+    .import-bar {
+      background: #e8f0fe;
+      border: 1px dashed #4a80c4;
+      border-radius: 8px;
+      padding: 12px 20px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .import-bar span { font-size: 13px; color: #555; }
+    .import-bar strong { color: #1e3a5f; }
+    #fileInput { display: none; }
+    .file-label {
+      padding: 6px 14px;
+      background: #1e3a5f;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .file-label:hover { background: #16304f; }
+    #fileNameDisplay { font-size: 12px; color: #888; }
 
     /* Notice list */
     .notice-list {
@@ -108,9 +139,9 @@
       transition: background 0.15s;
       gap: 14px;
     }
-
     .notice-item:last-child { border-bottom: none; }
     .notice-item:hover { background: #f7f9fc; }
+    .notice-item.pinned { background: #f0f5ff; border-left: 4px solid #1e3a5f; }
 
     .badge {
       flex-shrink: 0;
@@ -120,13 +151,12 @@
       font-weight: 600;
       margin-top: 2px;
     }
-
     .badge.important { background: #ffe0e0; color: #c0392b; }
     .badge.general   { background: #e0eeff; color: #1e3a5f; }
     .badge.event     { background: #e8f8e8; color: #27ae60; }
     .badge.hr        { background: #fef3cd; color: #b8860b; }
 
-    .notice-content { flex: 1; }
+    .notice-content { flex: 1; min-width: 0; }
 
     .notice-title {
       font-size: 15px;
@@ -135,8 +165,8 @@
       display: flex;
       align-items: center;
       gap: 8px;
+      flex-wrap: wrap;
     }
-
     .notice-title .new-tag {
       font-size: 10px;
       background: #e74c3c;
@@ -145,12 +175,7 @@
       border-radius: 4px;
     }
 
-    .notice-meta {
-      font-size: 12px;
-      color: #888;
-      display: flex;
-      gap: 16px;
-    }
+    .notice-meta { font-size: 12px; color: #888; display: flex; gap: 16px; }
 
     .notice-right {
       flex-shrink: 0;
@@ -158,30 +183,10 @@
       font-size: 12px;
       color: #aaa;
     }
-
     .notice-right .date { display: block; margin-bottom: 4px; }
-    .notice-right .views { font-size: 11px; }
-
-    /* Pinned notice */
-    .notice-item.pinned {
-      background: #f0f5ff;
-      border-left: 4px solid #1e3a5f;
-    }
-
-    .pin-icon {
-      font-size: 12px;
-      color: #1e3a5f;
-      margin-right: 2px;
-    }
 
     /* Pagination */
-    .pagination {
-      display: flex;
-      justify-content: center;
-      margin-top: 24px;
-      gap: 6px;
-    }
-
+    .pagination { display: flex; justify-content: center; margin-top: 24px; gap: 6px; }
     .page-btn {
       width: 34px;
       height: 34px;
@@ -192,16 +197,10 @@
       font-size: 13px;
       transition: all 0.2s;
     }
-
-    .page-btn.active {
-      background: #1e3a5f;
-      color: white;
-      border-color: #1e3a5f;
-    }
-
+    .page-btn.active { background: #1e3a5f; color: white; border-color: #1e3a5f; }
     .page-btn:hover:not(.active) { background: #f0f2f5; }
 
-    /* Modal overlay */
+    /* ===== VIEW MODAL ===== */
     .modal-overlay {
       display: none;
       position: fixed;
@@ -211,15 +210,14 @@
       justify-content: center;
       align-items: center;
     }
-
     .modal-overlay.open { display: flex; }
 
     .modal {
       background: white;
       border-radius: 12px;
       width: 90%;
-      max-width: 640px;
-      max-height: 80vh;
+      max-width: 680px;
+      max-height: 85vh;
       overflow-y: auto;
       box-shadow: 0 8px 32px rgba(0,0,0,0.18);
     }
@@ -230,10 +228,9 @@
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
+      gap: 12px;
     }
-
     .modal-title-wrap .modal-badge { margin-bottom: 8px; display: inline-block; }
-
     .modal-title-wrap h2 { font-size: 18px; font-weight: 600; }
 
     .modal-close {
@@ -243,6 +240,7 @@
       cursor: pointer;
       color: #888;
       line-height: 1;
+      flex-shrink: 0;
     }
 
     .modal-body {
@@ -251,6 +249,8 @@
       line-height: 1.8;
       color: #444;
     }
+    .modal-body p { margin-bottom: 8px; }
+    .modal-body ul, .modal-body ol { padding-left: 20px; margin-bottom: 8px; }
 
     .modal-footer {
       padding: 12px 24px;
@@ -260,16 +260,220 @@
       display: flex;
       justify-content: space-between;
     }
+
+    /* ===== EDITOR MODAL ===== */
+    .editor-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+    }
+    .editor-overlay.open { display: flex; }
+
+    .editor-modal {
+      background: white;
+      border-radius: 12px;
+      width: 92%;
+      max-width: 760px;
+      max-height: 92vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .editor-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .editor-header h2 { font-size: 17px; font-weight: 600; }
+
+    .editor-fields {
+      padding: 20px 24px 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .editor-fields .full { grid-column: 1 / -1; }
+
+    .field-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .field-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+    }
+    .field-input:focus { border-color: #1e3a5f; }
+
+    select.field-input { cursor: pointer; }
+
+    /* Rich text toolbar */
+    .rt-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 10px 24px;
+      border-bottom: 1px solid #eee;
+      background: #fafafa;
+      border-top: 1px solid #eee;
+      margin-top: 16px;
+      align-items: center;
+    }
+
+    .rt-btn {
+      width: 30px;
+      height: 28px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .rt-btn:hover { background: #e8eef8; border-color: #1e3a5f; }
+    .rt-btn.active { background: #1e3a5f; color: white; border-color: #1e3a5f; }
+
+    .rt-divider {
+      width: 1px;
+      height: 22px;
+      background: #ddd;
+      margin: 0 2px;
+    }
+
+    .rt-color-btn {
+      position: relative;
+      width: 30px;
+      height: 28px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      overflow: hidden;
+      background: white;
+    }
+    .rt-color-btn input[type="color"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .rt-color-icon {
+      font-size: 13px;
+      font-weight: bold;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
+    .color-underline {
+      height: 3px;
+      width: 18px;
+      margin: 0 auto;
+      background: #e74c3c;
+      border-radius: 1px;
+    }
+
+    .rt-select {
+      height: 28px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+      padding: 0 4px;
+      outline: none;
+      cursor: pointer;
+      background: white;
+    }
+    .rt-select:focus { border-color: #1e3a5f; }
+
+    .rt-bg-btn {
+      position: relative;
+      width: 30px;
+      height: 28px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      overflow: hidden;
+      background: white;
+    }
+    .rt-bg-btn input[type="color"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Editor content area */
+    .rt-editor {
+      min-height: 200px;
+      padding: 16px 24px;
+      outline: none;
+      font-size: 14px;
+      line-height: 1.8;
+      color: #333;
+    }
+    .rt-editor:empty::before {
+      content: '공지사항 내용을 입력하세요...';
+      color: #bbb;
+      pointer-events: none;
+    }
+    .rt-editor p { margin-bottom: 6px; }
+    .rt-editor ul, .rt-editor ol { padding-left: 20px; margin-bottom: 6px; }
+
+    .editor-footer {
+      padding: 14px 24px;
+      border-top: 1px solid #eee;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      padding: 60px;
+      text-align: center;
+      color: #aaa;
+      font-size: 14px;
+    }
   </style>
 </head>
 <body>
 
 <header>
   <h1>업무 공지사항</h1>
-  <span>DEMO v0.1</span>
+  <span>DEMO v0.2</span>
 </header>
 
 <div class="container">
+
+  <!-- File import bar -->
+  <div class="import-bar">
+    <span><strong>파일에서 불러오기</strong> — xlsx, xls, csv 지원</span>
+    <label class="file-label" for="fileInput">파일 선택</label>
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="importFile(this)">
+    <span id="fileNameDisplay">파일을 선택하면 자동으로 목록이 갱신됩니다</span>
+  </div>
+
+  <!-- Toolbar -->
   <div class="toolbar">
     <div class="toolbar-left">
       <button class="filter-btn active" onclick="filterNotices('all', this)">전체</button>
@@ -278,31 +482,28 @@
       <button class="filter-btn" onclick="filterNotices('hr', this)">인사</button>
       <button class="filter-btn" onclick="filterNotices('event', this)">행사</button>
     </div>
-    <div class="search-box">
-      <input type="text" id="searchInput" placeholder="공지사항 검색..." oninput="searchNotices()">
+    <div class="toolbar-right">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="검색..." oninput="applyFilter()">
+      </div>
+      <button class="btn-primary" onclick="openEditor()">+ 공지 작성</button>
     </div>
   </div>
 
   <div class="notice-list" id="noticeList"></div>
 
-  <div class="pagination">
-    <button class="page-btn">&lt;</button>
-    <button class="page-btn active">1</button>
-    <button class="page-btn">2</button>
-    <button class="page-btn">3</button>
-    <button class="page-btn">&gt;</button>
-  </div>
+  <div class="pagination" id="pagination"></div>
 </div>
 
-<!-- Modal -->
-<div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
+<!-- ===== VIEW MODAL ===== -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeViewModal(event)">
   <div class="modal">
     <div class="modal-header">
       <div class="modal-title-wrap">
         <span class="badge modal-badge" id="modalBadge"></span>
         <h2 id="modalTitle"></h2>
       </div>
-      <button class="modal-close" onclick="closeModalDirect()">&#x2715;</button>
+      <button class="modal-close" onclick="closeViewModalDirect()">&#x2715;</button>
     </div>
     <div class="modal-body" id="modalBody"></div>
     <div class="modal-footer">
@@ -312,165 +513,384 @@
   </div>
 </div>
 
+<!-- ===== EDITOR MODAL ===== -->
+<div class="editor-overlay" id="editorOverlay" onclick="closeEditorOverlay(event)">
+  <div class="editor-modal">
+    <div class="editor-header">
+      <h2>공지사항 작성</h2>
+      <button class="modal-close" onclick="closeEditor()">&#x2715;</button>
+    </div>
+
+    <div class="editor-fields">
+      <div>
+        <div class="field-label">카테고리</div>
+        <select class="field-input" id="edCategory">
+          <option value="general">일반</option>
+          <option value="important">중요</option>
+          <option value="hr">인사</option>
+          <option value="event">행사</option>
+        </select>
+      </div>
+      <div>
+        <div class="field-label">작성자</div>
+        <input class="field-input" id="edAuthor" type="text" placeholder="작성자명">
+      </div>
+      <div class="full">
+        <div class="field-label">제목</div>
+        <input class="field-input" id="edTitle" type="text" placeholder="공지사항 제목을 입력하세요">
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="edPinned"> 상단 고정
+        </label>
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="edNew" checked> NEW 표시
+        </label>
+      </div>
+    </div>
+
+    <!-- Rich text toolbar -->
+    <div class="rt-toolbar">
+      <!-- Text style -->
+      <select class="rt-select" onchange="execCmd('formatBlock', this.value); this.value='p'">
+        <option value="p">본문</option>
+        <option value="h2">제목 1</option>
+        <option value="h3">제목 2</option>
+        <option value="h4">제목 3</option>
+      </select>
+
+      <select class="rt-select" id="fontSizeSelect" onchange="setFontSize(this.value)">
+        <option value="">크기</option>
+        <option value="12px">12</option>
+        <option value="14px">14</option>
+        <option value="16px">16</option>
+        <option value="18px">18</option>
+        <option value="20px">20</option>
+        <option value="24px">24</option>
+      </select>
+
+      <div class="rt-divider"></div>
+
+      <button class="rt-btn" title="굵게" onmousedown="e(event,'bold')"><b>B</b></button>
+      <button class="rt-btn" title="기울임" onmousedown="e(event,'italic')"><i>I</i></button>
+      <button class="rt-btn" title="밑줄" onmousedown="e(event,'underline')"><u>U</u></button>
+      <button class="rt-btn" title="취소선" onmousedown="e(event,'strikeThrough')"><s>S</s></button>
+
+      <div class="rt-divider"></div>
+
+      <!-- Text color -->
+      <div class="rt-color-btn" title="글자 색상">
+        <div class="rt-color-icon">
+          A
+          <div class="color-underline" id="colorIndicator"></div>
+        </div>
+        <input type="color" value="#e74c3c" id="textColorPicker" oninput="applyTextColor(this.value)" onchange="applyTextColor(this.value)">
+      </div>
+
+      <!-- Highlight color -->
+      <div class="rt-bg-btn" title="형광펜">
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:13px;pointer-events:none;">
+          <span style="background:#ffe066;padding:0 3px;">A</span>
+        </div>
+        <input type="color" value="#ffe066" id="bgColorPicker" oninput="applyBgColor(this.value)" onchange="applyBgColor(this.value)">
+      </div>
+
+      <div class="rt-divider"></div>
+
+      <button class="rt-btn" title="왼쪽 정렬" onmousedown="e(event,'justifyLeft')">&#8676;</button>
+      <button class="rt-btn" title="가운데 정렬" onmousedown="e(event,'justifyCenter')">&#8660;</button>
+      <button class="rt-btn" title="오른쪽 정렬" onmousedown="e(event,'justifyRight')">&#8677;</button>
+
+      <div class="rt-divider"></div>
+
+      <button class="rt-btn" title="글머리 목록" onmousedown="e(event,'insertUnorderedList')">&#8226;&#8212;</button>
+      <button class="rt-btn" title="번호 목록" onmousedown="e(event,'insertOrderedList')">1&#8212;</button>
+
+      <div class="rt-divider"></div>
+
+      <button class="rt-btn" title="서식 지우기" onmousedown="e(event,'removeFormat')" style="font-size:11px;">T&#x2715;</button>
+    </div>
+
+    <div class="rt-editor" id="rtEditor" contenteditable="true"></div>
+
+    <div class="editor-footer">
+      <button class="btn-outline" onclick="closeEditor()">취소</button>
+      <button class="btn-primary" onclick="saveNotice()">공지 등록</button>
+    </div>
+  </div>
+</div>
+
 <script>
-  const notices = [
-    {
-      id: 1,
-      category: "important",
-      pinned: true,
-      isNew: true,
-      title: "[필독] 2026년 1분기 보안 정책 업데이트 안내",
-      author: "정보보안팀",
-      date: "2026-03-28",
-      views: 312,
-      body: `안녕하세요. 정보보안팀입니다.\n\n2026년 1분기 보안 정책이 아래와 같이 업데이트되었습니다.\n\n1. 비밀번호 변경 주기: 90일 → 60일\n2. 외부망 접속 시 VPN 필수 사용\n3. 개인 USB 사용 금지 (보안 USB만 허용)\n\n위 사항을 반드시 준수해주시기 바랍니다.\n위반 시 사규에 따라 징계 처리될 수 있습니다.`
-    },
-    {
-      id: 2,
-      category: "hr",
-      pinned: true,
-      isNew: false,
-      title: "[인사] 2026년 상반기 정기 인사발령 공고",
-      author: "인사팀",
-      date: "2026-03-25",
-      views: 891,
-      body: `2026년 상반기 정기 인사발령을 다음과 같이 공고합니다.\n\n- 발령일: 2026년 4월 1일\n- 대상: 전 직원\n- 세부 내용은 사내 인트라넷 인사발령 게시판을 참고하시기 바랍니다.\n\n문의사항은 인사팀(내선 1234)으로 연락 주시기 바랍니다.`
-    },
-    {
-      id: 3,
-      category: "general",
-      pinned: false,
-      isNew: true,
-      title: "사무용품 신청 방법 변경 안내 (4월부터 적용)",
-      author: "총무팀",
-      date: "2026-03-27",
-      views: 145,
-      body: `안녕하세요. 총무팀입니다.\n\n4월 1일부터 사무용품 신청 방법이 아래와 같이 변경됩니다.\n\n[기존] 이메일 신청\n[변경] 사내 포털 > 총무신청 > 사무용품 신청\n\n신청 마감은 매월 20일이며, 익월 5일 지급됩니다.\n기존 이메일 신청은 3월 31일부로 종료됩니다.`
-    },
-    {
-      id: 4,
-      category: "event",
-      pinned: false,
-      isNew: true,
-      title: "2026 상반기 워크숍 일정 및 참가 신청 안내",
-      author: "기획팀",
-      date: "2026-03-26",
-      views: 234,
-      body: `안녕하세요. 기획팀입니다.\n\n2026 상반기 전사 워크숍 일정을 안내드립니다.\n\n- 일시: 2026년 5월 15일(금) ~ 16일(토)\n- 장소: 강원도 춘천 리조트\n- 참가 대상: 전 직원\n- 신청 기간: 4월 1일 ~ 4월 14일\n\n사내 포털에서 신청 가능합니다. 많은 참여 부탁드립니다!`
-    },
-    {
-      id: 5,
-      category: "general",
-      pinned: false,
-      isNew: false,
-      title: "사내 식당 운영시간 변경 안내 (3월 30일부터)",
-      author: "복리후생팀",
-      date: "2026-03-22",
-      views: 567,
-      body: `3월 30일부터 사내 식당 운영시간이 변경됩니다.\n\n[조식] 07:30 ~ 09:00\n[중식] 11:30 ~ 13:30\n[석식] 17:30 ~ 19:00 (기존 18:30 종료 → 19:00으로 연장)\n\n석식 이용 시 사전 예약(당일 15시까지)이 필요합니다.`
-    },
-    {
-      id: 6,
-      category: "important",
-      pinned: false,
-      isNew: false,
-      title: "[긴급] 사내 네트워크 점검 안내 (3/29 새벽)",
-      author: "IT인프라팀",
-      date: "2026-03-21",
-      views: 422,
-      body: `안녕하세요. IT인프라팀입니다.\n\n긴급 네트워크 점검이 예정되어 있으니 업무에 참고 바랍니다.\n\n- 일시: 2026년 3월 29일(토) 01:00 ~ 04:00\n- 영향 범위: 사내 인터넷, VPN, 사내 포털 전체\n- 사유: 네트워크 장비 펌웨어 업그레이드\n\n점검 시간 동안 해당 서비스를 이용하실 수 없습니다.`
-    },
-    {
-      id: 7,
-      category: "hr",
-      pinned: false,
-      isNew: false,
-      title: "2026년 하계 휴가 신청 일정 안내",
-      author: "인사팀",
-      date: "2026-03-18",
-      views: 703,
-      body: `2026년 하계 휴가 신청 일정을 안내드립니다.\n\n- 신청 기간: 4월 7일 ~ 4월 18일\n- 휴가 사용 기간: 7월 1일 ~ 8월 31일\n- 신청 방법: 사내 포털 > 근태관리 > 휴가신청\n\n팀별 최소 운영 인원을 고려하여 신청해주시기 바랍니다.\n자세한 사항은 인사팀으로 문의 바랍니다.`
-    },
-  ];
+  // ===== DATA =====
+  const ITEMS_PER_PAGE = 8;
+  let notices = [];
+  let currentFilter = 'all';
+  let currentPage = 1;
+  let nextId = 100;
 
   const categoryLabel = {
-    important: ["중요", "important"],
-    general:   ["일반", "general"],
-    event:     ["행사", "event"],
-    hr:        ["인사", "hr"],
+    important: ['중요', 'important'],
+    general:   ['일반', 'general'],
+    event:     ['행사', 'event'],
+    hr:        ['인사', 'hr'],
   };
 
-  let currentFilter = 'all';
+  // ===== FILE IMPORT (xlsx / csv) =====
+  function importFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    document.getElementById('fileNameDisplay').textContent = file.name + ' 로드 중...';
 
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+        const imported = rows.map((row, i) => ({
+          id: nextId++,
+          category:  String(row['category'] || 'general').trim(),
+          pinned:    String(row['pinned']).toLowerCase() === 'true',
+          isNew:     String(row['isNew']).toLowerCase() === 'true',
+          title:     String(row['title'] || '(제목 없음)').trim(),
+          author:    String(row['author'] || '').trim(),
+          date:      String(row['date'] || '').trim(),
+          views:     parseInt(row['views']) || 0,
+          body:      String(row['body'] || '').trim(),
+        }));
+
+        notices = imported;
+        currentPage = 1;
+        applyFilter();
+        document.getElementById('fileNameDisplay').textContent =
+          `✅ ${file.name} — ${imported.length}건 불러옴`;
+      } catch(err) {
+        document.getElementById('fileNameDisplay').textContent = '❌ 파일 읽기 실패: ' + err.message;
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // ===== RENDER =====
   function renderNotices(list) {
     const container = document.getElementById('noticeList');
-    if (list.length === 0) {
-      container.innerHTML = '<div style="padding:40px;text-align:center;color:#aaa;">검색 결과가 없습니다.</div>';
+    const total = list.length;
+
+    if (total === 0) {
+      container.innerHTML = '<div class="empty-state">공지사항이 없습니다.<br>파일을 불러오거나 공지를 직접 작성해보세요.</div>';
+      document.getElementById('pagination').innerHTML = '';
       return;
     }
-    container.innerHTML = list.map(n => {
-      const [label, cls] = categoryLabel[n.category];
+
+    const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+    if (currentPage > totalPages) currentPage = 1;
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const pageItems = list.slice(start, start + ITEMS_PER_PAGE);
+
+    container.innerHTML = pageItems.map(n => {
+      const [label, cls] = categoryLabel[n.category] || ['일반', 'general'];
       return `
-        <div class="notice-item ${n.pinned ? 'pinned' : ''}" onclick="openModal(${n.id})">
+        <div class="notice-item ${n.pinned ? 'pinned' : ''}" onclick="openViewModal(${n.id})">
           <span class="badge ${cls}">${n.pinned ? '📌 ' : ''}${label}</span>
           <div class="notice-content">
             <div class="notice-title">
-              ${n.title}
+              ${escHtml(n.title)}
               ${n.isNew ? '<span class="new-tag">NEW</span>' : ''}
             </div>
             <div class="notice-meta">
-              <span>${n.author}</span>
+              <span>${escHtml(n.author)}</span>
               <span>조회 ${n.views}</span>
             </div>
           </div>
           <div class="notice-right">
-            <span class="date">${n.date}</span>
+            <span class="date">${escHtml(n.date)}</span>
           </div>
-        </div>
-      `;
+        </div>`;
     }).join('');
+
+    renderPagination(totalPages);
+  }
+
+  function renderPagination(totalPages) {
+    const pg = document.getElementById('pagination');
+    if (totalPages <= 1) { pg.innerHTML = ''; return; }
+
+    let html = `<button class="page-btn" onclick="goPage(${currentPage - 1})">&lt;</button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
+    }
+    html += `<button class="page-btn" onclick="goPage(${currentPage + 1})">&gt;</button>`;
+    pg.innerHTML = html;
+  }
+
+  function goPage(p) {
+    const list = getFilteredList();
+    const totalPages = Math.ceil(list.length / ITEMS_PER_PAGE);
+    if (p < 1 || p > totalPages) return;
+    currentPage = p;
+    renderNotices(list);
+  }
+
+  // ===== FILTER =====
+  function getFilteredList() {
+    const keyword = document.getElementById('searchInput').value.toLowerCase();
+    let result = [...notices].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+    if (currentFilter !== 'all') result = result.filter(n => n.category === currentFilter);
+    if (keyword) result = result.filter(n =>
+      n.title.toLowerCase().includes(keyword) || n.author.toLowerCase().includes(keyword)
+    );
+    return result;
   }
 
   function filterNotices(category, btn) {
     currentFilter = category;
+    currentPage = 1;
     document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     applyFilter();
   }
 
-  function searchNotices() { applyFilter(); }
-
   function applyFilter() {
-    const keyword = document.getElementById('searchInput').value.toLowerCase();
-    let result = notices;
-    if (currentFilter !== 'all') result = result.filter(n => n.category === currentFilter);
-    if (keyword) result = result.filter(n => n.title.toLowerCase().includes(keyword) || n.author.includes(keyword));
-    renderNotices(result);
+    renderNotices(getFilteredList());
   }
 
-  function openModal(id) {
+  // ===== VIEW MODAL =====
+  function openViewModal(id) {
     const n = notices.find(x => x.id === id);
     if (!n) return;
-    const [label, cls] = categoryLabel[n.category];
+    const [label, cls] = categoryLabel[n.category] || ['일반', 'general'];
     document.getElementById('modalBadge').textContent = label;
     document.getElementById('modalBadge').className = `badge modal-badge ${cls}`;
     document.getElementById('modalTitle').textContent = n.title;
-    document.getElementById('modalBody').innerHTML = n.body.replace(/\n/g, '<br>');
+    document.getElementById('modalBody').innerHTML = n.body || '<p>(내용 없음)</p>';
     document.getElementById('modalAuthor').textContent = '작성자: ' + n.author;
     document.getElementById('modalDate').textContent = n.date;
     document.getElementById('modalOverlay').classList.add('open');
   }
 
-  function closeModal(e) {
-    if (e.target === document.getElementById('modalOverlay')) closeModalDirect();
+  function closeViewModal(ev) {
+    if (ev.target === document.getElementById('modalOverlay')) closeViewModalDirect();
   }
-
-  function closeModalDirect() {
+  function closeViewModalDirect() {
     document.getElementById('modalOverlay').classList.remove('open');
   }
 
-  // Initial render
-  renderNotices(notices);
+  // ===== EDITOR =====
+  let savedRange = null;
+
+  function openEditor() {
+    document.getElementById('edTitle').value = '';
+    document.getElementById('edAuthor').value = '';
+    document.getElementById('edCategory').value = 'general';
+    document.getElementById('edPinned').checked = false;
+    document.getElementById('edNew').checked = true;
+    document.getElementById('rtEditor').innerHTML = '';
+    document.getElementById('editorOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('rtEditor').focus(), 100);
+  }
+
+  function closeEditor() {
+    document.getElementById('editorOverlay').classList.remove('open');
+  }
+
+  function closeEditorOverlay(ev) {
+    if (ev.target === document.getElementById('editorOverlay')) closeEditor();
+  }
+
+  function saveNotice() {
+    const title = document.getElementById('edTitle').value.trim();
+    if (!title) { alert('제목을 입력해주세요.'); return; }
+
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10);
+
+    notices.unshift({
+      id: nextId++,
+      category: document.getElementById('edCategory').value,
+      pinned:   document.getElementById('edPinned').checked,
+      isNew:    document.getElementById('edNew').checked,
+      title,
+      author: document.getElementById('edAuthor').value.trim() || '작성자',
+      date: dateStr,
+      views: 0,
+      body: document.getElementById('rtEditor').innerHTML,
+    });
+
+    closeEditor();
+    currentPage = 1;
+    applyFilter();
+  }
+
+  // ===== RICH TEXT COMMANDS =====
+  function e(event, cmd) {
+    event.preventDefault();
+    document.getElementById('rtEditor').focus();
+    document.execCommand(cmd, false, null);
+  }
+
+  function execCmd(cmd, value) {
+    document.getElementById('rtEditor').focus();
+    document.execCommand(cmd, false, value);
+  }
+
+  function setFontSize(size) {
+    if (!size) return;
+    saveSelection();
+    restoreSelection();
+    document.execCommand('fontSize', false, '7');
+    // Replace font size with inline style
+    const editor = document.getElementById('rtEditor');
+    editor.querySelectorAll('font[size="7"]').forEach(el => {
+      el.removeAttribute('size');
+      el.style.fontSize = size;
+    });
+  }
+
+  function applyTextColor(color) {
+    document.getElementById('colorIndicator').style.background = color;
+    saveSelection();
+    restoreSelection();
+    document.execCommand('foreColor', false, color);
+  }
+
+  function applyBgColor(color) {
+    saveSelection();
+    restoreSelection();
+    document.execCommand('hiliteColor', false, color);
+  }
+
+  function saveSelection() {
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0) savedRange = sel.getRangeAt(0);
+  }
+
+  function restoreSelection() {
+    const editor = document.getElementById('rtEditor');
+    editor.focus();
+    if (savedRange) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+    }
+  }
+
+  // Save selection when user clicks toolbar color pickers
+  document.addEventListener('DOMContentLoaded', () => {
+    const editor = document.getElementById('rtEditor');
+    editor.addEventListener('mouseup', saveSelection);
+    editor.addEventListener('keyup', saveSelection);
+    renderNotices([]);
+  });
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 </script>
 </body>
 </html>
