@@ -236,6 +236,49 @@
     .notice-item:last-child { border-bottom: none; }
     .notice-item:hover { background: #f7f9fc; }
     .notice-item.pinned { background: #f0f5ff; border-left: 4px solid #1e3a5f; }
+    .notice-item.drag-over { background: #dbeafe; border-top: 2px solid #3b82f6; }
+    .notice-item.dragging { opacity: 0.4; }
+
+    /* 순서 이동 버튼 */
+    .order-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .notice-item:hover .order-btns { opacity: 1; }
+    .order-btn {
+      width: 22px;
+      height: 22px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #888;
+      line-height: 1;
+    }
+    .order-btn:hover { background: #1e3a5f; color: white; border-color: #1e3a5f; }
+    .order-btn:disabled { opacity: 0.2; cursor: default; }
+    .order-btn:disabled:hover { background: white; color: #888; border-color: #ddd; }
+
+    /* 드래그 핸들 */
+    .drag-handle {
+      flex-shrink: 0;
+      color: #ccc;
+      cursor: grab;
+      font-size: 16px;
+      padding: 2px 0;
+      user-select: none;
+      align-self: center;
+    }
+    .drag-handle:hover { color: #888; }
+    .drag-handle:active { cursor: grabbing; }
 
     .badge {
       flex-shrink: 0;
@@ -941,12 +984,29 @@
     const start = (currentPage - 1) * ITEMS_PER_PAGE;
     const pageItems = list.slice(start, start + ITEMS_PER_PAGE);
 
-    container.innerHTML = pageItems.map(n => {
+    container.innerHTML = pageItems.map((n, idx) => {
       const [label, cls] = categoryLabel[n.category] || ['일반', 'general'];
+      const globalIdx = notices.indexOf(n);
+      const isFirst = globalIdx === 0;
+      const isLast  = globalIdx === notices.length - 1;
       return `
-        <div class="notice-item ${n.pinned ? 'pinned' : ''}" onclick="openViewModal(${n.id})">
-          <span class="badge ${cls}">${n.pinned ? '📌 ' : ''}${label}</span>
-          <div class="notice-content">
+        <div class="notice-item ${n.pinned ? 'pinned' : ''}"
+             data-id="${n.id}"
+             draggable="true"
+             ondragstart="onDragStart(event, ${n.id})"
+             ondragover="onDragOver(event)"
+             ondragleave="onDragLeave(event)"
+             ondrop="onDrop(event, ${n.id})"
+             ondragend="onDragEnd(event)">
+          <span class="drag-handle" title="드래그로 순서 변경">&#8942;&#8942;</span>
+          <div class="order-btns">
+            <button class="order-btn" title="위로" ${isFirst ? 'disabled' : ''}
+              onclick="event.stopPropagation(); moveNotice(${n.id}, -1)">&#9650;</button>
+            <button class="order-btn" title="아래로" ${isLast ? 'disabled' : ''}
+              onclick="event.stopPropagation(); moveNotice(${n.id}, 1)">&#9660;</button>
+          </div>
+          <span class="badge ${cls}" onclick="openViewModal(${n.id})">${n.pinned ? '📌 ' : ''}${label}</span>
+          <div class="notice-content" onclick="openViewModal(${n.id})">
             <div class="notice-title">
               ${escHtml(n.title)}
               ${n.isNew ? '<span class="new-tag">NEW</span>' : ''}
@@ -956,12 +1016,13 @@
               <span>조회 ${n.views}</span>
             </div>
           </div>
-          <div class="notice-right">
+          <div class="notice-right" onclick="openViewModal(${n.id})">
             <span class="date">${escHtml(n.date)}</span>
           </div>
         </div>`;
     }).join('');
 
+    initDragTouch();
     renderPagination(totalPages);
   }
 
@@ -1135,6 +1196,108 @@
     editor.addEventListener('keyup', saveSelection);
     applyFilter();
   });
+
+  // ===== NOTICE ORDER =====
+  function moveNotice(id, dir) {
+    const idx = notices.findIndex(n => n.id === id);
+    if (idx < 0) return;
+    const target = idx + dir;
+    if (target < 0 || target >= notices.length) return;
+    const tmp = notices[idx];
+    notices[idx] = notices[target];
+    notices[target] = tmp;
+    applyFilter();
+  }
+
+  // Drag & Drop (desktop)
+  let dragSrcId = null;
+
+  function onDragStart(ev, id) {
+    dragSrcId = id;
+    ev.currentTarget.classList.add('dragging');
+    ev.dataTransfer.effectAllowed = 'move';
+  }
+
+  function onDragOver(ev) {
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = 'move';
+    ev.currentTarget.classList.add('drag-over');
+  }
+
+  function onDragLeave(ev) {
+    ev.currentTarget.classList.remove('drag-over');
+  }
+
+  function onDrop(ev, targetId) {
+    ev.preventDefault();
+    ev.currentTarget.classList.remove('drag-over');
+    if (dragSrcId === null || dragSrcId === targetId) return;
+    const srcIdx = notices.findIndex(n => n.id === dragSrcId);
+    const tgtIdx = notices.findIndex(n => n.id === targetId);
+    if (srcIdx < 0 || tgtIdx < 0) return;
+    const [moved] = notices.splice(srcIdx, 1);
+    notices.splice(tgtIdx, 0, moved);
+    dragSrcId = null;
+    applyFilter();
+  }
+
+  function onDragEnd(ev) {
+    ev.currentTarget.classList.remove('dragging');
+    document.querySelectorAll('.notice-item').forEach(el => el.classList.remove('drag-over'));
+    dragSrcId = null;
+  }
+
+  // Touch drag (iPad) — long press + move
+  function initDragTouch() {
+    const items = document.querySelectorAll('.notice-item[draggable]');
+    items.forEach(item => {
+      let pressTimer = null;
+      let touchDragging = false;
+      let startY = 0;
+
+      item.addEventListener('touchstart', ev => {
+        startY = ev.touches[0].clientY;
+        pressTimer = setTimeout(() => {
+          touchDragging = true;
+          item.style.opacity = '0.5';
+          item.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)';
+        }, 400);
+      }, { passive: true });
+
+      item.addEventListener('touchmove', ev => {
+        if (!touchDragging) { clearTimeout(pressTimer); return; }
+        ev.preventDefault();
+        const touch = ev.touches[0];
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetItem = el ? el.closest('.notice-item[data-id]') : null;
+        document.querySelectorAll('.notice-item').forEach(i => i.classList.remove('drag-over'));
+        if (targetItem && targetItem !== item) targetItem.classList.add('drag-over');
+      }, { passive: false });
+
+      item.addEventListener('touchend', ev => {
+        clearTimeout(pressTimer);
+        if (!touchDragging) return;
+        item.style.opacity = '';
+        item.style.boxShadow = '';
+        touchDragging = false;
+        const touch = ev.changedTouches[0];
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetItem = el ? el.closest('.notice-item[data-id]') : null;
+        document.querySelectorAll('.notice-item').forEach(i => i.classList.remove('drag-over'));
+        if (targetItem && targetItem !== item) {
+          const srcId  = parseInt(item.dataset.id);
+          const tgtId  = parseInt(targetItem.dataset.id);
+          const srcIdx = notices.findIndex(n => n.id === srcId);
+          const tgtIdx = notices.findIndex(n => n.id === tgtId);
+          if (srcIdx >= 0 && tgtIdx >= 0) {
+            const [moved] = notices.splice(srcIdx, 1);
+            notices.splice(tgtIdx, 0, moved);
+            applyFilter();
+          }
+        }
+      });
+    });
+  }
 
   // ===== TAB SWITCH =====
   function switchTab(tabId, btn) {
