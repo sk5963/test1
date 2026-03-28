@@ -28,6 +28,100 @@
     header h1 { font-size: 20px; font-weight: 600; letter-spacing: 1px; }
     header span { font-size: 13px; opacity: 0.75; }
 
+    /* Tab nav */
+    .tab-nav {
+      background: #16304f;
+      display: flex;
+      padding: 0 32px;
+      gap: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tab-nav::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      padding: 12px 22px;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.55);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      border-bottom: 3px solid transparent;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover { color: rgba(255,255,255,0.85); }
+    .tab-btn.active {
+      color: white;
+      border-bottom-color: #5b9bd5;
+    }
+
+    /* Tab panels */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Static content panels (VPN, Rules, ETC) */
+    .static-panel {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+      padding: 32px 36px;
+    }
+    .static-panel h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1e3a5f;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #e8f0fe;
+    }
+    .static-panel .section {
+      margin-bottom: 24px;
+    }
+    .static-panel .section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    .static-panel .section p,
+    .static-panel .section li {
+      font-size: 13px;
+      line-height: 1.8;
+      color: #555;
+    }
+    .static-panel .section ul,
+    .static-panel .section ol {
+      padding-left: 18px;
+    }
+    .info-box {
+      background: #f0f5ff;
+      border-left: 4px solid #1e3a5f;
+      border-radius: 0 6px 6px 0;
+      padding: 12px 16px;
+      margin-top: 8px;
+      font-size: 13px;
+      color: #444;
+      line-height: 1.7;
+    }
+    .warn-box {
+      background: #fff8e1;
+      border-left: 4px solid #f39c12;
+      border-radius: 0 6px 6px 0;
+      padding: 12px 16px;
+      margin-top: 8px;
+      font-size: 13px;
+      color: #555;
+      line-height: 1.7;
+    }
+    .placeholder-note {
+      text-align: center;
+      padding: 60px 0;
+      color: #bbb;
+      font-size: 14px;
+    }
+
     .container {
       max-width: 960px;
       margin: 32px auto;
@@ -459,40 +553,145 @@
 <body>
 
 <header>
-  <h1>업무 공지사항</h1>
-  <span>DEMO v0.2</span>
+  <h1>사내 포털</h1>
+  <span>DEMO v0.3</span>
 </header>
 
-<div class="container">
+<!-- Tab navigation -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('notice', this)">공지사항</button>
+  <button class="tab-btn" onclick="switchTab('vpn', this)">VPN Info</button>
+  <button class="tab-btn" onclick="switchTab('rules', this)">Rules</button>
+  <button class="tab-btn" onclick="switchTab('etc1', this)">ETC1</button>
+  <button class="tab-btn" onclick="switchTab('etc2', this)">ETC2</button>
+</div>
 
-  <!-- File import bar -->
-  <div class="import-bar">
-    <span><strong>파일에서 불러오기</strong> — xlsx, xls, csv 지원</span>
-    <label class="file-label" for="fileInput">파일 선택</label>
-    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="importFile(this)">
-    <span id="fileNameDisplay">파일을 선택하면 자동으로 목록이 갱신됩니다</span>
-  </div>
+<!-- ===== TAB: 공지사항 ===== -->
+<div class="tab-panel active" id="tab-notice">
+  <div class="container">
 
-  <!-- Toolbar -->
-  <div class="toolbar">
-    <div class="toolbar-left">
-      <button class="filter-btn active" onclick="filterNotices('all', this)">전체</button>
-      <button class="filter-btn" onclick="filterNotices('important', this)">중요</button>
-      <button class="filter-btn" onclick="filterNotices('general', this)">일반</button>
-      <button class="filter-btn" onclick="filterNotices('hr', this)">인사</button>
-      <button class="filter-btn" onclick="filterNotices('event', this)">행사</button>
+    <!-- File import bar -->
+    <div class="import-bar">
+      <span><strong>파일에서 불러오기</strong> — xlsx, xls, csv 지원</span>
+      <label class="file-label" for="fileInput">파일 선택</label>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="importFile(this)">
+      <span id="fileNameDisplay">파일을 선택하면 자동으로 목록이 갱신됩니다</span>
     </div>
-    <div class="toolbar-right">
-      <div class="search-box">
-        <input type="text" id="searchInput" placeholder="검색..." oninput="applyFilter()">
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button class="filter-btn active" onclick="filterNotices('all', this)">전체</button>
+        <button class="filter-btn" onclick="filterNotices('important', this)">중요</button>
+        <button class="filter-btn" onclick="filterNotices('general', this)">일반</button>
+        <button class="filter-btn" onclick="filterNotices('hr', this)">인사</button>
+        <button class="filter-btn" onclick="filterNotices('event', this)">행사</button>
       </div>
-      <button class="btn-primary" onclick="openEditor()">+ 공지 작성</button>
+      <div class="toolbar-right">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="검색..." oninput="applyFilter()">
+        </div>
+        <button class="btn-primary" onclick="openEditor()">+ 공지 작성</button>
+      </div>
+    </div>
+
+    <div class="notice-list" id="noticeList"></div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+</div>
+
+<!-- ===== TAB: VPN Info ===== -->
+<div class="tab-panel" id="tab-vpn">
+  <div class="container">
+    <div class="static-panel">
+      <h2>VPN 접속 안내</h2>
+      <div class="section">
+        <h3>접속 방법</h3>
+        <ul>
+          <li>VPN 클라이언트 설치 후 사내 IT포털에서 인증서 발급</li>
+          <li>Windows: FortiClient VPN / macOS: Tunnelblick</li>
+          <li>접속 주소: <b>vpn.company.internal</b></li>
+        </ul>
+      </div>
+      <div class="section">
+        <h3>접속 계정</h3>
+        <div class="info-box">
+          아이디: 사번 (예: 20240001)<br>
+          비밀번호: 초기 비밀번호는 IT헬프데스크 문의 (내선 9999)<br>
+          최초 로그인 시 반드시 비밀번호를 변경해주세요.
+        </div>
+      </div>
+      <div class="section">
+        <h3>주의사항</h3>
+        <div class="warn-box">
+          외부망에서 사내 시스템 접근 시 VPN 필수 사용<br>
+          VPN 연결 상태에서는 개인 인터넷 사용 자제<br>
+          보안 이슈 발생 시 즉시 IT보안팀(내선 1004) 신고
+        </div>
+      </div>
+      <div class="placeholder-note">※ 실제 운영 시 상세 내용으로 교체 예정 (DEMO)</div>
     </div>
   </div>
+</div>
 
-  <div class="notice-list" id="noticeList"></div>
+<!-- ===== TAB: Rules ===== -->
+<div class="tab-panel" id="tab-rules">
+  <div class="container">
+    <div class="static-panel">
+      <h2>사내 규정</h2>
+      <div class="section">
+        <h3>근무 규정</h3>
+        <ul>
+          <li>정규 근무시간: 09:00 ~ 18:00 (점심 12:00~13:00)</li>
+          <li>유연근무제 신청 가능 (08:00~10:00 출근 범위)</li>
+          <li>재택근무: 주 최대 2일, 팀장 사전 승인 필요</li>
+        </ul>
+      </div>
+      <div class="section">
+        <h3>보안 규정</h3>
+        <ul>
+          <li>업무용 PC에 개인 소프트웨어 무단 설치 금지</li>
+          <li>사내 자료 외부 반출 시 정보보안팀 승인 필수</li>
+          <li>퇴근 시 PC 화면 잠금 및 중요 문서 정리 의무</li>
+        </ul>
+      </div>
+      <div class="section">
+        <h3>복무 규정</h3>
+        <div class="info-box">
+          연차 사용: 전자결재 시스템 통해 3일 전 신청 원칙<br>
+          병가: 의사 진단서 첨부 후 인사팀 제출<br>
+          지각·조퇴: 팀장 보고 후 근태관리 시스템에 등록
+        </div>
+      </div>
+      <div class="placeholder-note">※ 실제 운영 시 상세 내용으로 교체 예정 (DEMO)</div>
+    </div>
+  </div>
+</div>
 
-  <div class="pagination" id="pagination"></div>
+<!-- ===== TAB: ETC1 ===== -->
+<div class="tab-panel" id="tab-etc1">
+  <div class="container">
+    <div class="static-panel">
+      <h2>ETC1</h2>
+      <div class="placeholder-note">
+        이 탭의 내용을 작성해주세요.<br>
+        <span style="font-size:12px;">(DEMO — 추후 내용 교체 예정)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: ETC2 ===== -->
+<div class="tab-panel" id="tab-etc2">
+  <div class="container">
+    <div class="static-panel">
+      <h2>ETC2</h2>
+      <div class="placeholder-note">
+        이 탭의 내용을 작성해주세요.<br>
+        <span style="font-size:12px;">(DEMO — 추후 내용 교체 예정)</span>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- ===== VIEW MODAL ===== -->
@@ -936,6 +1135,14 @@
     editor.addEventListener('keyup', saveSelection);
     applyFilter();
   });
+
+  // ===== TAB SWITCH =====
+  function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    btn.classList.add('active');
+  }
 
   function escHtml(str) {
     return String(str)
