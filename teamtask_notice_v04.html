@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<!--
+================================================================================
+  파일명   : notice.html
+  설  명   : 사내 포털 - 업무 공지사항 뷰어
+  작성일   : 2026-03-28
+================================================================================
+
+  [변경 이력]
+
+  v0.1 (2026-03-28)
+  - 최초 생성
+  - 공지사항 목록 UI 구현 (카테고리 뱃지, 고정 공지, NEW 표시)
+  - 카테고리 필터 (전체 / 중요 / 일반 / 인사 / 행사)
+  - 검색 기능 (제목, 작성자)
+  - 공지 클릭 시 상세 내용 모달 팝업
+  - 페이지네이션
+  - 디버깅용 샘플 데이터 7건 기본 표시
+
+  v0.2 (2026-03-28)
+  - xlsx / xls / csv 파일 불러오기 기능 추가 (SheetJS 라이브러리 사용)
+  - 파일 불러오기 시 샘플 데이터 대체
+  - 공지사항 작성 에디터 추가 (+ 공지 작성 버튼)
+  - 리치텍스트 에디터 기능:
+      · 굵게 / 기울임 / 밑줄 / 취소선
+      · 글자 색상 (컬러피커)
+      · 형광펜 배경색 (컬러피커)
+      · 제목 크기 선택 (본문 / 제목1~3)
+      · 폰트 크기 선택
+      · 텍스트 정렬 (좌 / 가운데 / 우)
+      · 글머리 목록 / 번호 목록
+      · 서식 초기화
+  - 샘플 CSV 파일 생성 (notices_sample.csv)
+
+  v0.3 (2026-03-28)
+  - 헤더 아래 탭 내비게이션 추가
+  - 탭 구성: 공지사항 / VPN Info / Rules / ETC1 / ETC2
+  - VPN Info 탭: 접속 방법, 계정 안내, 주의사항 데모 내용
+  - Rules 탭: 근무·보안·복무 규정 데모 내용
+  - ETC1, ETC2 탭: 추후 내용 입력 예정 플레이스홀더
+
+  v0.4 (2026-03-28)
+  - 공지사항 순서 변경 기능 추가
+      · ▲▼ 버튼: 항목 호버 시 표시, 클릭으로 한 칸 위/아래 이동
+      · 드래그&드롭: ⋮⋮ 핸들 잡고 원하는 위치로 이동 (PC)
+      · 터치 드래그: 길게 누른 후(0.4초) 드래그 (아이패드/모바일)
+
+================================================================================
+-->
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>업무 공지사항</title>
+  <!-- SheetJS for xlsx/csv parsing -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      color: #333;
+    }
+
+    /* Header */
+    header {
+      background: #1e3a5f;
+      color: white;
+      padding: 16px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    header h1 { font-size: 20px; font-weight: 600; letter-spacing: 1px; }
+    header span { font-size: 13px; opacity: 0.75; }
+
+    /* Tab nav */
+    .tab-nav {
+      background: #16304f;
+      display: flex;
+      padding: 0 32px;
+      gap: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tab-nav::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      padding: 12px 22px;
+      background: none;
+      border: none;
+      color: rgba(255,255,255,0.55);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      border-bottom: 3px solid transparent;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover { color: rgba(255,255,255,0.85); }
+    .tab-btn.active {
+      color: white;
+      border-bottom-color: #5b9bd5;
+    }
+
+    /* Tab panels */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Static content panels (VPN, Rules, ETC) */
+    .static-panel {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+      padding: 32px 36px;
+    }
+    .static-panel h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1e3a5f;
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid #e8f0fe;
+    }
+    .static-panel .section {
+      margin-bottom: 24px;
+    }
+    .static-panel .section h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    .static-panel .section p,
+    .static-panel .section li {
+      font-size: 13px;
+      line-height: 1.8;
+      color: #555;
+    }
+    .static-panel .section ul,
+    .static-panel .section ol {
+      padding-left: 18px;
+    }
+    .info-box {
+      background: #f0f5ff;
+      border-left: 4px solid #1e3a5f;
+      border-radius: 0 6px 6px 0;
+      padding: 12px 16px;
+      margin-top: 8px;
+      font-size: 13px;
+      color: #444;
+      line-height: 1.7;
+    }
+    .warn-box {
+      background: #fff8e1;
+      border-left: 4px solid #f39c12;
+      border-radius: 0 6px 6px 0;
+      padding: 12px 16px;
+      margin-top: 8px;
+      font-size: 13px;
+      color: #555;
+      line-height: 1.7;
+    }
+    .placeholder-note {
+      text-align: center;
+      padding: 60px 0;
+      color: #bbb;
+      font-size: 14px;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 32px auto;
+      padding: 0 16px;
+    }
+
+    /* Toolbar */
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .toolbar-left { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .filter-btn {
+      padding: 6px 16px;
+      border: 1px solid #ccc;
+      border-radius: 20px;
+      background: white;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .filter-btn.active, .filter-btn:hover {
+      background: #1e3a5f;
+      color: white;
+      border-color: #1e3a5f;
+    }
+
+    .toolbar-right { display: flex; gap: 8px; align-items: center; }
+
+    .search-box input {
+      padding: 6px 12px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+      width: 180px;
+    }
+    .search-box input:focus { border-color: #1e3a5f; }
+
+    .btn-primary {
+      padding: 7px 16px;
+      background: #1e3a5f;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .btn-primary:hover { background: #16304f; }
+
+    .btn-outline {
+      padding: 7px 14px;
+      background: white;
+      color: #1e3a5f;
+      border: 1px solid #1e3a5f;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+    .btn-outline:hover { background: #f0f5ff; }
+
+    /* File import area */
+    .import-bar {
+      background: #e8f0fe;
+      border: 1px dashed #4a80c4;
+      border-radius: 8px;
+      padding: 12px 20px;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .import-bar span { font-size: 13px; color: #555; }
+    .import-bar strong { color: #1e3a5f; }
+    #fileInput { display: none; }
+    .file-label {
+      padding: 6px 14px;
+      background: #1e3a5f;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .file-label:hover { background: #16304f; }
+    #fileNameDisplay { font-size: 12px; color: #888; }
+
+    /* Notice list */
+    .notice-list {
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+
+    .notice-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 18px 24px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      transition: background 0.15s;
+      gap: 14px;
+    }
+    .notice-item:last-child { border-bottom: none; }
+    .notice-item:hover { background: #f7f9fc; }
+    .notice-item.pinned { background: #f0f5ff; border-left: 4px solid #1e3a5f; }
+    .notice-item.drag-over { background: #dbeafe; border-top: 2px solid #3b82f6; }
+    .notice-item.dragging { opacity: 0.4; }
+
+    /* 순서 이동 버튼 */
+    .order-btns {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .notice-item:hover .order-btns { opacity: 1; }
+    .order-btn {
+      width: 22px;
+      height: 22px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #888;
+      line-height: 1;
+    }
+    .order-btn:hover { background: #1e3a5f; color: white; border-color: #1e3a5f; }
+    .order-btn:disabled { opacity: 0.2; cursor: default; }
+    .order-btn:disabled:hover { background: white; color: #888; border-color: #ddd; }
+
+    /* 드래그 핸들 */
+    .drag-handle {
+      flex-shrink: 0;
+      color: #ccc;
+      cursor: grab;
+      font-size: 16px;
+      padding: 2px 0;
+      user-select: none;
+      align-self: center;
+    }
+    .drag-handle:hover { color: #888; }
+    .drag-handle:active { cursor: grabbing; }
+
+    .badge {
+      flex-shrink: 0;
+      padding: 3px 9px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    .badge.important { background: #ffe0e0; color: #c0392b; }
+    .badge.general   { background: #e0eeff; color: #1e3a5f; }
+    .badge.event     { background: #e8f8e8; color: #27ae60; }
+    .badge.hr        { background: #fef3cd; color: #b8860b; }
+
+    .notice-content { flex: 1; min-width: 0; }
+
+    .notice-title {
+      font-size: 15px;
+      font-weight: 500;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .notice-title .new-tag {
+      font-size: 10px;
+      background: #e74c3c;
+      color: white;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    .notice-meta { font-size: 12px; color: #888; display: flex; gap: 16px; }
+
+    .notice-right {
+      flex-shrink: 0;
+      text-align: right;
+      font-size: 12px;
+      color: #aaa;
+    }
+    .notice-right .date { display: block; margin-bottom: 4px; }
+
+    /* Pagination */
+    .pagination { display: flex; justify-content: center; margin-top: 24px; gap: 6px; }
+    .page-btn {
+      width: 34px;
+      height: 34px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+    .page-btn.active { background: #1e3a5f; color: white; border-color: #1e3a5f; }
+    .page-btn:hover:not(.active) { background: #f0f2f5; }
+
+    /* ===== VIEW MODAL ===== */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: white;
+      border-radius: 12px;
+      width: 90%;
+      max-width: 680px;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+
+    .modal-header {
+      padding: 20px 24px 16px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .modal-title-wrap .modal-badge { margin-bottom: 8px; display: inline-block; }
+    .modal-title-wrap h2 { font-size: 18px; font-weight: 600; }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      cursor: pointer;
+      color: #888;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .modal-body {
+      padding: 20px 24px;
+      font-size: 14px;
+      line-height: 1.8;
+      color: #444;
+    }
+    .modal-body p { margin-bottom: 8px; }
+    .modal-body ul, .modal-body ol { padding-left: 20px; margin-bottom: 8px; }
+
+    .modal-footer {
+      padding: 12px 24px;
+      border-top: 1px solid #eee;
+      font-size: 12px;
+      color: #aaa;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ===== EDITOR MODAL ===== */
+    .editor-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 200;
+      justify-content: center;
+      align-items: center;
+    }
+    .editor-overlay.open { display: flex; }
+
+    .editor-modal {
+      background: white;
+      border-radius: 12px;
+      width: 92%;
+      max-width: 760px;
+      max-height: 92vh;
+      overflow-y: auto;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .editor-header {
+      padding: 18px 24px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .editor-header h2 { font-size: 17px; font-weight: 600; }
+
+    .editor-fields {
+      padding: 20px 24px 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .editor-fields .full { grid-column: 1 / -1; }
+
+    .field-label {
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .field-input {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+    }
+    .field-input:focus { border-color: #1e3a5f; }
+
+    select.field-input { cursor: pointer; }
+
+    /* Rich text toolbar */
+    .rt-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 10px 24px;
+      border-bottom: 1px solid #eee;
+      background: #fafafa;
+      border-top: 1px solid #eee;
+      margin-top: 16px;
+      align-items: center;
+    }
+
+    .rt-btn {
+      width: 30px;
+      height: 28px;
+      border: 1px solid #ddd;
+      background: white;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .rt-btn:hover { background: #e8eef8; border-color: #1e3a5f; }
+    .rt-btn.active { background: #1e3a5f; color: white; border-color: #1e3a5f; }
+
+    .rt-divider {
+      width: 1px;
+      height: 22px;
+      background: #ddd;
+      margin: 0 2px;
+    }
+
+    .rt-color-btn {
+      position: relative;
+      width: 30px;
+      height: 28px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      overflow: hidden;
+      background: white;
+    }
+    .rt-color-btn input[type="color"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+    .rt-color-icon {
+      font-size: 13px;
+      font-weight: bold;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+    }
+    .color-underline {
+      height: 3px;
+      width: 18px;
+      margin: 0 auto;
+      background: #e74c3c;
+      border-radius: 1px;
+    }
+
+    .rt-select {
+      height: 28px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 12px;
+      padding: 0 4px;
+      outline: none;
+      cursor: pointer;
+      background: white;
+    }
+    .rt-select:focus { border-color: #1e3a5f; }
+
+    .rt-bg-btn {
+      position: relative;
+      width: 30px;
+      height: 28px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      cursor: pointer;
+      overflow: hidden;
+      background: white;
+    }
+    .rt-bg-btn input[type="color"] {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Editor content area */
+    .rt-editor {
+      min-height: 200px;
+      padding: 16px 24px;
+      outline: none;
+      font-size: 14px;
+      line-height: 1.8;
+      color: #333;
+    }
+    .rt-editor:empty::before {
+      content: '공지사항 내용을 입력하세요...';
+      color: #bbb;
+      pointer-events: none;
+    }
+    .rt-editor p { margin-bottom: 6px; }
+    .rt-editor ul, .rt-editor ol { padding-left: 20px; margin-bottom: 6px; }
+
+    .editor-footer {
+      padding: 14px 24px;
+      border-top: 1px solid #eee;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    /* Empty state */
+    .empty-state {
+      padding: 60px;
+      text-align: center;
+      color: #aaa;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>사내 포털</h1>
+  <span>DEMO v0.3</span>
+</header>
+
+<!-- Tab navigation -->
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="switchTab('notice', this)">공지사항</button>
+  <button class="tab-btn" onclick="switchTab('vpn', this)">VPN Info</button>
+  <button class="tab-btn" onclick="switchTab('rules', this)">Rules</button>
+  <button class="tab-btn" onclick="switchTab('etc1', this)">ETC1</button>
+  <button class="tab-btn" onclick="switchTab('etc2', this)">ETC2</button>
+</div>
+
+<!-- ===== TAB: 공지사항 ===== -->
+<div class="tab-panel active" id="tab-notice">
+  <div class="container">
+
+    <!-- File import bar -->
+    <div class="import-bar">
+      <span><strong>파일에서 불러오기</strong> — xlsx, xls, csv 지원</span>
+      <label class="file-label" for="fileInput">파일 선택</label>
+      <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="importFile(this)">
+      <span id="fileNameDisplay">파일을 선택하면 자동으로 목록이 갱신됩니다</span>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <button class="filter-btn active" onclick="filterNotices('all', this)">전체</button>
+        <button class="filter-btn" onclick="filterNotices('important', this)">중요</button>
+        <button class="filter-btn" onclick="filterNotices('general', this)">일반</button>
+        <button class="filter-btn" onclick="filterNotices('hr', this)">인사</button>
+        <button class="filter-btn" onclick="filterNotices('event', this)">행사</button>
+      </div>
+      <div class="toolbar-right">
+        <div class="search-box">
+          <input type="text" id="searchInput" placeholder="검색..." oninput="applyFilter()">
+        </div>
+        <button class="btn-primary" onclick="openEditor()">+ 공지 작성</button>
+      </div>
+    </div>
+
+    <div class="notice-list" id="noticeList"></div>
+    <div class="pagination" id="pagination"></div>
+  </div>
+</div>
+
+<!-- ===== TAB: VPN Info ===== -->
+<div class="tab-panel" id="tab-vpn">
+  <div class="container">
+    <div class="static-panel">
+      <h2>VPN 접속 안내</h2>
+      <div class="section">
+        <h3>접속 방법</h3>
+        <ul>
+          <li>VPN 클라이언트 설치 후 사내 IT포털에서 인증서 발급</li>
+          <li>Windows: FortiClient VPN / macOS: Tunnelblick</li>
+          <li>접속 주소: <b>vpn.company.internal</b></li>
+        </ul>
+      </div>
+      <div class="section">
+        <h3>접속 계정</h3>
+        <div class="info-box">
+          아이디: 사번 (예: 20240001)<br>
+          비밀번호: 초기 비밀번호는 IT헬프데스크 문의 (내선 9999)<br>
+          최초 로그인 시 반드시 비밀번호를 변경해주세요.
+        </div>
+      </div>
+      <div class="section">
+        <h3>주의사항</h3>
+        <div class="warn-box">
+          외부망에서 사내 시스템 접근 시 VPN 필수 사용<br>
+          VPN 연결 상태에서는 개인 인터넷 사용 자제<br>
+          보안 이슈 발생 시 즉시 IT보안팀(내선 1004) 신고
+        </div>
+      </div>
+      <div class="placeholder-note">※ 실제 운영 시 상세 내용으로 교체 예정 (DEMO)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: Rules ===== -->
+<div class="tab-panel" id="tab-rules">
+  <div class="container">
+    <div class="static-panel">
+      <h2>사내 규정</h2>
+      <div class="section">
+        <h3>근무 규정</h3>
+        <ul>
+          <li>정규 근무시간: 09:00 ~ 18:00 (점심 12:00~13:00)</li>
+          <li>유연근무제 신청 가능 (08:00~10:00 출근 범위)</li>
+          <li>재택근무: 주 최대 2일, 팀장 사전 승인 필요</li>
+        </ul>
+      </div>
+      <div class="section">
+        <h3>보안 규정</h3>
+        <ul>
+          <li>업무용 PC에 개인 소프트웨어 무단 설치 금지</li>
+          <li>사내 자료 외부 반출 시 정보보안팀 승인 필수</li>
+          <li>퇴근 시 PC 화면 잠금 및 중요 문서 정리 의무</li>
+        </ul>
+      </div>
+      <div class="section">
+        <h3>복무 규정</h3>
+        <div class="info-box">
+          연차 사용: 전자결재 시스템 통해 3일 전 신청 원칙<br>
+          병가: 의사 진단서 첨부 후 인사팀 제출<br>
+          지각·조퇴: 팀장 보고 후 근태관리 시스템에 등록
+        </div>
+      </div>
+      <div class="placeholder-note">※ 실제 운영 시 상세 내용으로 교체 예정 (DEMO)</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: ETC1 ===== -->
+<div class="tab-panel" id="tab-etc1">
+  <div class="container">
+    <div class="static-panel">
+      <h2>ETC1</h2>
+      <div class="placeholder-note">
+        이 탭의 내용을 작성해주세요.<br>
+        <span style="font-size:12px;">(DEMO — 추후 내용 교체 예정)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== TAB: ETC2 ===== -->
+<div class="tab-panel" id="tab-etc2">
+  <div class="container">
+    <div class="static-panel">
+      <h2>ETC2</h2>
+      <div class="placeholder-note">
+        이 탭의 내용을 작성해주세요.<br>
+        <span style="font-size:12px;">(DEMO — 추후 내용 교체 예정)</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== VIEW MODAL ===== -->
+<div class="modal-overlay" id="modalOverlay" onclick="closeViewModal(event)">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title-wrap">
+        <span class="badge modal-badge" id="modalBadge"></span>
+        <h2 id="modalTitle"></h2>
+      </div>
+      <button class="modal-close" onclick="closeViewModalDirect()">&#x2715;</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-footer">
+      <span id="modalAuthor"></span>
+      <span id="modalDate"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ===== EDITOR MODAL ===== -->
+<div class="editor-overlay" id="editorOverlay" onclick="closeEditorOverlay(event)">
+  <div class="editor-modal">
+    <div class="editor-header">
+      <h2>공지사항 작성</h2>
+      <button class="modal-close" onclick="closeEditor()">&#x2715;</button>
+    </div>
+
+    <div class="editor-fields">
+      <div>
+        <div class="field-label">카테고리</div>
+        <select class="field-input" id="edCategory">
+          <option value="general">일반</option>
+          <option value="important">중요</option>
+          <option value="hr">인사</option>
+          <option value="event">행사</option>
+        </select>
+      </div>
+      <div>
+        <div class="field-label">작성자</div>
+        <input class="field-input" id="edAuthor" type="text" placeholder="작성자명">
+      </div>
+      <div class="full">
+        <div class="field-label">제목</div>
+        <input class="field-input" id="edTitle" type="text" placeholder="공지사항 제목을 입력하세요">
+      </div>
+      <div style="display:flex;gap:12px;align-items:center;">
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="edPinned"> 상단 고정
+        </label>
+        <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+          <input type="checkbox" id="edNew" checked> NEW 표시
+        </label>
+      </div>
+    </div>
+
+    <!-- Rich text toolbar -->
+    <div class="rt-toolbar">
+      <!-- Text style -->
+      <select class="rt-select" onchange="execCmd('formatBlock', this.value); this.value='p'">
+        <option value="p">본문</option>
+        <option value="h2">제목 1</option>
+        <option value="h3">제목 2</option>
+        <option value="h4">제목 3</option>
+      </select>
+
+      <select class="rt-select" id="fontSizeSelect" onchange="setFontSize(this.value)">
+        <option value="">크기</option>
+        <option value="12px">12</option>
+        <option value="14px">14</option>
+        <option value="16px">16</option>
+        <option value="18px">18</option>
+        <option value="20px">20</option>
+        <option value="24px">24</option>
+      </select>
+
+      <div class="rt-divider"></div>
+
+      <button class="rt-btn" title="굵게" onmousedown="e(event,'bold')"><b>B</b></button>
+      <button class="rt-btn" title="기울임" onmousedown="e(event,'italic')"><i>I</i></button>
+      <button class="rt-btn" title="밑줄" onmousedown="e(event,'underline')"><u>U</u></button>
+      <button class="rt-btn" title="취소선" onmousedown="e(event,'strikeThrough')"><s>S</s></button>
+
+      <div class="rt-divider"></div>
+
+      <!-- Text color -->
+      <div class="rt-color-btn" title="글자 색상">
+        <div class="rt-color-icon">
+          A
+          <div class="color-underline" id="colorIndicator"></div>
+        </div>
+        <input type="color" value="#e74c3c" id="textColorPicker" oninput="applyTextColor(this.value)" onchange="applyTextColor(this.value)">
+      </div>
+
+      <!-- Highlight color -->
+      <div class="rt-bg-btn" title="형광펜">
+        <div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:13px;pointer-events:none;">
+          <span style="background:#ffe066;padding:0 3px;">A</span>
+        </div>
+        <input type="color" value="#ffe066" id="bgColorPicker" oninput="applyBgColor(this.value)" onchange="applyBgColor(this.value)">
+      </div>
+
+      <div class="rt-divider"></div>
+
+      <button class="rt-btn" title="왼쪽 정렬" onmousedown="e(event,'justifyLeft')">&#8676;</button>
+      <button class="rt-btn" title="가운데 정렬" onmousedown="e(event,'justifyCenter')">&#8660;</button>
+      <button class="rt-btn" title="오른쪽 정렬" onmousedown="e(event,'justifyRight')">&#8677;</button>
+
+      <div class="rt-divider"></div>
+
+      <button class="rt-btn" title="글머리 목록" onmousedown="e(event,'insertUnorderedList')">&#8226;&#8212;</button>
+      <button class="rt-btn" title="번호 목록" onmousedown="e(event,'insertOrderedList')">1&#8212;</button>
+
+      <div class="rt-divider"></div>
+
+      <button class="rt-btn" title="서식 지우기" onmousedown="e(event,'removeFormat')" style="font-size:11px;">T&#x2715;</button>
+    </div>
+
+    <div class="rt-editor" id="rtEditor" contenteditable="true"></div>
+
+    <div class="editor-footer">
+      <button class="btn-outline" onclick="closeEditor()">취소</button>
+      <button class="btn-primary" onclick="saveNotice()">공지 등록</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ===== DATA =====
+  const ITEMS_PER_PAGE = 8;
+  const SAMPLE_NOTICES = [
+    {
+      id: 1,
+      category: 'important', pinned: true, isNew: true,
+      title: '[필독] 2026년 1분기 보안 정책 업데이트 안내',
+      author: '정보보안팀', date: '2026-03-28', views: 312,
+      body: `<p>안녕하세요. 정보보안팀입니다.</p><p>2026년 1분기 보안 정책이 아래와 같이 업데이트되었습니다.</p><ol><li><b>비밀번호 변경 주기:</b> 90일 → 60일</li><li><b>외부망 접속 시 VPN 필수 사용</b></li><li><b>개인 USB 사용 금지</b> (보안 USB만 허용)</li></ol><p><span style="color:#c0392b;font-weight:bold;">위반 시 사규에 따라 징계 처리될 수 있습니다.</span></p>`
+    },
+    {
+      id: 2,
+      category: 'hr', pinned: true, isNew: false,
+      title: '[인사] 2026년 상반기 정기 인사발령 공고',
+      author: '인사팀', date: '2026-03-25', views: 891,
+      body: `<p>2026년 상반기 정기 인사발령을 다음과 같이 공고합니다.</p><ul><li>발령일: <b>2026년 4월 1일</b></li><li>대상: 전 직원</li></ul><p>문의사항은 인사팀(내선 1234)으로 연락 주시기 바랍니다.</p>`
+    },
+    {
+      id: 3,
+      category: 'general', pinned: false, isNew: true,
+      title: '사무용품 신청 방법 변경 안내 (4월부터 적용)',
+      author: '총무팀', date: '2026-03-27', views: 145,
+      body: `<p>4월 1일부터 사무용품 신청 방법이 변경됩니다.</p><p><s>기존: 이메일 신청</s><br><b>변경: 사내 포털 &gt; 총무신청 &gt; 사무용품 신청</b></p><p>신청 마감은 매월 20일이며, 익월 5일 지급됩니다.</p>`
+    },
+    {
+      id: 4,
+      category: 'event', pinned: false, isNew: true,
+      title: '2026 상반기 워크숍 일정 및 참가 신청 안내',
+      author: '기획팀', date: '2026-03-26', views: 234,
+      body: `<p>2026 상반기 전사 워크숍 일정을 안내드립니다.</p><ul><li>일시: <b>2026년 5월 15일(금) ~ 16일(토)</b></li><li>장소: 강원도 춘천 리조트</li><li>신청 기간: 4월 1일 ~ 4월 14일</li></ul><p><span style="color:#27ae60;">많은 참여 부탁드립니다!</span></p>`
+    },
+    {
+      id: 5,
+      category: 'general', pinned: false, isNew: false,
+      title: '사내 식당 운영시간 변경 안내 (3월 30일부터)',
+      author: '복리후생팀', date: '2026-03-22', views: 567,
+      body: `<p>3월 30일부터 사내 식당 운영시간이 변경됩니다.</p><p>조식 07:30~09:00 / 중식 11:30~13:30 / <b>석식 17:30~19:00</b> (연장)</p><p>석식 이용 시 <span style="color:#e67e22;">당일 15시까지 사전 예약</span> 필요합니다.</p>`
+    },
+    {
+      id: 6,
+      category: 'important', pinned: false, isNew: false,
+      title: '[긴급] 사내 네트워크 점검 안내 (3/29 새벽)',
+      author: 'IT인프라팀', date: '2026-03-21', views: 422,
+      body: `<p>긴급 네트워크 점검이 예정되어 있으니 업무에 참고 바랍니다.</p><ul><li>일시: <b>2026년 3월 29일(토) 01:00 ~ 04:00</b></li><li>영향 범위: 사내 인터넷, VPN, 사내 포털 전체</li></ul><p><span style="color:#c0392b;">점검 시간 동안 해당 서비스를 이용하실 수 없습니다.</span></p>`
+    },
+    {
+      id: 7,
+      category: 'hr', pinned: false, isNew: false,
+      title: '2026년 하계 휴가 신청 일정 안내',
+      author: '인사팀', date: '2026-03-18', views: 703,
+      body: `<p>2026년 하계 휴가 신청 일정을 안내드립니다.</p><ul><li>신청 기간: <b>4월 7일 ~ 4월 18일</b></li><li>휴가 사용 기간: 7월 1일 ~ 8월 31일</li></ul><p>팀별 최소 운영 인원을 고려하여 신청해주시기 바랍니다.</p>`
+    },
+  ];
+
+  let notices = [...SAMPLE_NOTICES];
+  let currentFilter = 'all';
+  let currentPage = 1;
+  let nextId = 100;
+
+  const categoryLabel = {
+    important: ['중요', 'important'],
+    general:   ['일반', 'general'],
+    event:     ['행사', 'event'],
+    hr:        ['인사', 'hr'],
+  };
+
+  // ===== FILE IMPORT (xlsx / csv) =====
+  function importFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+    document.getElementById('fileNameDisplay').textContent = file.name + ' 로드 중...';
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+        const imported = rows.map((row, i) => ({
+          id: nextId++,
+          category:  String(row['category'] || 'general').trim(),
+          pinned:    String(row['pinned']).toLowerCase() === 'true',
+          isNew:     String(row['isNew']).toLowerCase() === 'true',
+          title:     String(row['title'] || '(제목 없음)').trim(),
+          author:    String(row['author'] || '').trim(),
+          date:      String(row['date'] || '').trim(),
+          views:     parseInt(row['views']) || 0,
+          body:      String(row['body'] || '').trim(),
+        }));
+
+        notices = imported;
+        nextId = Math.max(...imported.map(n => n.id)) + 1;
+        currentPage = 1;
+        applyFilter();
+        document.getElementById('fileNameDisplay').textContent =
+          `✅ ${file.name} — ${imported.length}건 불러옴 (샘플 데이터 대체됨)`;
+      } catch(err) {
+        document.getElementById('fileNameDisplay').textContent = '❌ 파일 읽기 실패: ' + err.message;
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // ===== RENDER =====
+  function renderNotices(list) {
+    const container = document.getElementById('noticeList');
+    const total = list.length;
+
+    if (total === 0) {
+      container.innerHTML = '<div class="empty-state">공지사항이 없습니다.<br>파일을 불러오거나 공지를 직접 작성해보세요.</div>';
+      document.getElementById('pagination').innerHTML = '';
+      return;
+    }
+
+    const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
+    if (currentPage > totalPages) currentPage = 1;
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const pageItems = list.slice(start, start + ITEMS_PER_PAGE);
+
+    container.innerHTML = pageItems.map((n, idx) => {
+      const [label, cls] = categoryLabel[n.category] || ['일반', 'general'];
+      const globalIdx = notices.indexOf(n);
+      const isFirst = globalIdx === 0;
+      const isLast  = globalIdx === notices.length - 1;
+      return `
+        <div class="notice-item ${n.pinned ? 'pinned' : ''}"
+             data-id="${n.id}"
+             draggable="true"
+             ondragstart="onDragStart(event, ${n.id})"
+             ondragover="onDragOver(event)"
+             ondragleave="onDragLeave(event)"
+             ondrop="onDrop(event, ${n.id})"
+             ondragend="onDragEnd(event)">
+          <span class="drag-handle" title="드래그로 순서 변경">&#8942;&#8942;</span>
+          <div class="order-btns">
+            <button class="order-btn" title="위로" ${isFirst ? 'disabled' : ''}
+              onclick="event.stopPropagation(); moveNotice(${n.id}, -1)">&#9650;</button>
+            <button class="order-btn" title="아래로" ${isLast ? 'disabled' : ''}
+              onclick="event.stopPropagation(); moveNotice(${n.id}, 1)">&#9660;</button>
+          </div>
+          <span class="badge ${cls}" onclick="openViewModal(${n.id})">${n.pinned ? '📌 ' : ''}${label}</span>
+          <div class="notice-content" onclick="openViewModal(${n.id})">
+            <div class="notice-title">
+              ${escHtml(n.title)}
+              ${n.isNew ? '<span class="new-tag">NEW</span>' : ''}
+            </div>
+            <div class="notice-meta">
+              <span>${escHtml(n.author)}</span>
+              <span>조회 ${n.views}</span>
+            </div>
+          </div>
+          <div class="notice-right" onclick="openViewModal(${n.id})">
+            <span class="date">${escHtml(n.date)}</span>
+          </div>
+        </div>`;
+    }).join('');
+
+    initDragTouch();
+    renderPagination(totalPages);
+  }
+
+  function renderPagination(totalPages) {
+    const pg = document.getElementById('pagination');
+    if (totalPages <= 1) { pg.innerHTML = ''; return; }
+
+    let html = `<button class="page-btn" onclick="goPage(${currentPage - 1})">&lt;</button>`;
+    for (let i = 1; i <= totalPages; i++) {
+      html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
+    }
+    html += `<button class="page-btn" onclick="goPage(${currentPage + 1})">&gt;</button>`;
+    pg.innerHTML = html;
+  }
+
+  function goPage(p) {
+    const list = getFilteredList();
+    const totalPages = Math.ceil(list.length / ITEMS_PER_PAGE);
+    if (p < 1 || p > totalPages) return;
+    currentPage = p;
+    renderNotices(list);
+  }
+
+  // ===== FILTER =====
+  function getFilteredList() {
+    const keyword = document.getElementById('searchInput').value.toLowerCase();
+    let result = [...notices].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0));
+    if (currentFilter !== 'all') result = result.filter(n => n.category === currentFilter);
+    if (keyword) result = result.filter(n =>
+      n.title.toLowerCase().includes(keyword) || n.author.toLowerCase().includes(keyword)
+    );
+    return result;
+  }
+
+  function filterNotices(category, btn) {
+    currentFilter = category;
+    currentPage = 1;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyFilter();
+  }
+
+  function applyFilter() {
+    renderNotices(getFilteredList());
+  }
+
+  // ===== VIEW MODAL =====
+  function openViewModal(id) {
+    const n = notices.find(x => x.id === id);
+    if (!n) return;
+    const [label, cls] = categoryLabel[n.category] || ['일반', 'general'];
+    document.getElementById('modalBadge').textContent = label;
+    document.getElementById('modalBadge').className = `badge modal-badge ${cls}`;
+    document.getElementById('modalTitle').textContent = n.title;
+    document.getElementById('modalBody').innerHTML = n.body || '<p>(내용 없음)</p>';
+    document.getElementById('modalAuthor').textContent = '작성자: ' + n.author;
+    document.getElementById('modalDate').textContent = n.date;
+    document.getElementById('modalOverlay').classList.add('open');
+  }
+
+  function closeViewModal(ev) {
+    if (ev.target === document.getElementById('modalOverlay')) closeViewModalDirect();
+  }
+  function closeViewModalDirect() {
+    document.getElementById('modalOverlay').classList.remove('open');
+  }
+
+  // ===== EDITOR =====
+  let savedRange = null;
+
+  function openEditor() {
+    document.getElementById('edTitle').value = '';
+    document.getElementById('edAuthor').value = '';
+    document.getElementById('edCategory').value = 'general';
+    document.getElementById('edPinned').checked = false;
+    document.getElementById('edNew').checked = true;
+    document.getElementById('rtEditor').innerHTML = '';
+    document.getElementById('editorOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('rtEditor').focus(), 100);
+  }
+
+  function closeEditor() {
+    document.getElementById('editorOverlay').classList.remove('open');
+  }
+
+  function closeEditorOverlay(ev) {
+    if (ev.target === document.getElementById('editorOverlay')) closeEditor();
+  }
+
+  function saveNotice() {
+    const title = document.getElementById('edTitle').value.trim();
+    if (!title) { alert('제목을 입력해주세요.'); return; }
+
+    const today = new Date();
+    const dateStr = today.toISOString().slice(0, 10);
+
+    notices.unshift({
+      id: nextId++,
+      category: document.getElementById('edCategory').value,
+      pinned:   document.getElementById('edPinned').checked,
+      isNew:    document.getElementById('edNew').checked,
+      title,
+      author: document.getElementById('edAuthor').value.trim() || '작성자',
+      date: dateStr,
+      views: 0,
+      body: document.getElementById('rtEditor').innerHTML,
+    });
+
+    closeEditor();
+    currentPage = 1;
+    applyFilter();
+  }
+
+  // ===== RICH TEXT COMMANDS =====
+  function e(event, cmd) {
+    event.preventDefault();
+    document.getElementById('rtEditor').focus();
+    document.execCommand(cmd, false, null);
+  }
+
+  function execCmd(cmd, value) {
+    document.getElementById('rtEditor').focus();
+    document.execCommand(cmd, false, value);
+  }
+
+  function setFontSize(size) {
+    if (!size) return;
+    saveSelection();
+    restoreSelection();
+    document.execCommand('fontSize', false, '7');
+    // Replace font size with inline style
+    const editor = document.getElementById('rtEditor');
+    editor.querySelectorAll('font[size="7"]').forEach(el => {
+      el.removeAttribute('size');
+      el.style.fontSize = size;
+    });
+  }
+
+  function applyTextColor(color) {
+    document.getElementById('colorIndicator').style.background = color;
+    saveSelection();
+    restoreSelection();
+    document.execCommand('foreColor', false, color);
+  }
+
+  function applyBgColor(color) {
+    saveSelection();
+    restoreSelection();
+    document.execCommand('hiliteColor', false, color);
+  }
+
+  function saveSelection() {
+    const sel = window.getSelection();
+    if (sel.rangeCount > 0) savedRange = sel.getRangeAt(0);
+  }
+
+  function restoreSelection() {
+    const editor = document.getElementById('rtEditor');
+    editor.focus();
+    if (savedRange) {
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(savedRange);
+    }
+  }
+
+  // Save selection when user clicks toolbar color pickers
+  document.addEventListener('DOMContentLoaded', () => {
+    const editor = document.getElementById('rtEditor');
+    editor.addEventListener('mouseup', saveSelection);
+    editor.addEventListener('keyup', saveSelection);
+    applyFilter();
+  });
+
+  // ===== NOTICE ORDER =====
+  function moveNotice(id, dir) {
+    const idx = notices.findIndex(n => n.id === id);
+    if (idx < 0) return;
+    const target = idx + dir;
+    if (target < 0 || target >= notices.length) return;
+    const tmp = notices[idx];
+    notices[idx] = notices[target];
+    notices[target] = tmp;
+    applyFilter();
+  }
+
+  // Drag & Drop (desktop)
+  let dragSrcId = null;
+
+  function onDragStart(ev, id) {
+    dragSrcId = id;
+    ev.currentTarget.classList.add('dragging');
+    ev.dataTransfer.effectAllowed = 'move';
+  }
+
+  function onDragOver(ev) {
+    ev.preventDefault();
+    ev.dataTransfer.dropEffect = 'move';
+    ev.currentTarget.classList.add('drag-over');
+  }
+
+  function onDragLeave(ev) {
+    ev.currentTarget.classList.remove('drag-over');
+  }
+
+  function onDrop(ev, targetId) {
+    ev.preventDefault();
+    ev.currentTarget.classList.remove('drag-over');
+    if (dragSrcId === null || dragSrcId === targetId) return;
+    const srcIdx = notices.findIndex(n => n.id === dragSrcId);
+    const tgtIdx = notices.findIndex(n => n.id === targetId);
+    if (srcIdx < 0 || tgtIdx < 0) return;
+    const [moved] = notices.splice(srcIdx, 1);
+    notices.splice(tgtIdx, 0, moved);
+    dragSrcId = null;
+    applyFilter();
+  }
+
+  function onDragEnd(ev) {
+    ev.currentTarget.classList.remove('dragging');
+    document.querySelectorAll('.notice-item').forEach(el => el.classList.remove('drag-over'));
+    dragSrcId = null;
+  }
+
+  // Touch drag (iPad) — long press + move
+  function initDragTouch() {
+    const items = document.querySelectorAll('.notice-item[draggable]');
+    items.forEach(item => {
+      let pressTimer = null;
+      let touchDragging = false;
+      let startY = 0;
+
+      item.addEventListener('touchstart', ev => {
+        startY = ev.touches[0].clientY;
+        pressTimer = setTimeout(() => {
+          touchDragging = true;
+          item.style.opacity = '0.5';
+          item.style.boxShadow = '0 4px 16px rgba(0,0,0,0.2)';
+        }, 400);
+      }, { passive: true });
+
+      item.addEventListener('touchmove', ev => {
+        if (!touchDragging) { clearTimeout(pressTimer); return; }
+        ev.preventDefault();
+        const touch = ev.touches[0];
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetItem = el ? el.closest('.notice-item[data-id]') : null;
+        document.querySelectorAll('.notice-item').forEach(i => i.classList.remove('drag-over'));
+        if (targetItem && targetItem !== item) targetItem.classList.add('drag-over');
+      }, { passive: false });
+
+      item.addEventListener('touchend', ev => {
+        clearTimeout(pressTimer);
+        if (!touchDragging) return;
+        item.style.opacity = '';
+        item.style.boxShadow = '';
+        touchDragging = false;
+        const touch = ev.changedTouches[0];
+        const el = document.elementFromPoint(touch.clientX, touch.clientY);
+        const targetItem = el ? el.closest('.notice-item[data-id]') : null;
+        document.querySelectorAll('.notice-item').forEach(i => i.classList.remove('drag-over'));
+        if (targetItem && targetItem !== item) {
+          const srcId  = parseInt(item.dataset.id);
+          const tgtId  = parseInt(targetItem.dataset.id);
+          const srcIdx = notices.findIndex(n => n.id === srcId);
+          const tgtIdx = notices.findIndex(n => n.id === tgtId);
+          if (srcIdx >= 0 && tgtIdx >= 0) {
+            const [moved] = notices.splice(srcIdx, 1);
+            notices.splice(tgtIdx, 0, moved);
+            applyFilter();
+          }
+        }
+      });
+    });
+  }
+
+  // ===== TAB SWITCH =====
+  function switchTab(tabId, btn) {
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('tab-' + tabId).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>
