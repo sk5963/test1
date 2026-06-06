@@ -2,32 +2,36 @@
 LAN 채팅 (lanpopup.py)
 
 같은 네트워크 안에서 동작하는 초간단 채팅 프로그램입니다.
-중앙 서버 1대 + 클라이언트(채팅 창) 구조이며, 표준 라이브러리만 사용합니다.
+모든 PC가 서버 능력을 내장하고 있어서, 별도의 서버 PC 없이도 동작합니다.
+
+  - 네트워크에 호스트(서버)가 있으면  → 자동으로 찾아서 클라이언트로 접속
+  - 호스트가 없으면                    → 내가 스스로 호스트가 됨
+  - 호스트가 꺼지면                    → 남은 PC 중 하나가 자동으로 새 호스트가 됨 (failover)
 
 기능
   - 닉네임(보낸/받는 사람) 표시
-  - 서버 접속자 목록 실시간 표시
+  - 접속자 목록 실시간 표시
   - 전체 채팅 / 1:1(DM) / 그룹(방) 채팅
   - 새 메시지가 오면 창/작업표시줄 깜빡임 + 알림음
   - 대화 기록을 로컬 파일에 저장 (다시 열면 이전 대화가 보임)
 
-사용법
-  [서버] 한 PC에서 한 번만 실행 (모두가 접속할 PC):
-      python lanpopup.py server
-      (실행하면 서버 IP가 표시됩니다. 접속자들에게 알려주세요.)
+사용법 (가장 간단 — 권장)
+  각 PC에서 그냥:
+      python lanpopup.py join 홍길동
+  (서버를 따로 켤 필요 없이, 알아서 접속하거나 호스트가 됩니다.)
 
-  [클라이언트] 채팅에 참여하는 각 PC에서:
-      python lanpopup.py client <서버IP> [닉네임]
-      예) python lanpopup.py client 192.168.0.10 홍길동
-      (닉네임을 생략하면 실행 후 물어봅니다.)
+수동 모드 (원하면)
+  python lanpopup.py server                 # 이 PC를 고정 호스트로
+  python lanpopup.py client <서버IP> 홍길동   # 특정 서버로 직접 접속
 
-포트는 기본 50505 입니다. 서버/클라이언트 모두 --port 로 동일하게 맞추세요.
+포트는 기본 50505(채팅) / 50506(자동 탐색) 입니다. --port 로 바꿀 수 있습니다.
 """
 
 import argparse
 import json
 import os
 import queue
+import random
 import re
 import socket
 import sys
@@ -38,10 +42,11 @@ from datetime import datetime
 PORT = 50505
 ENCODING = "utf-8"
 BUF = 4096
+DISCOVER_REQUEST = b"LANCHAT_DISCOVER?"
+DISCOVER_REPLY_PREFIX = b"LANCHAT_SERVER:"
 
 
 def get_local_ip():
-    """이 PC의 LAN IP 주소를 추정해서 돌려줍니다."""
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         s.connect(("8.8.8.8", 80))
@@ -53,7 +58,6 @@ def get_local_ip():
 
 
 def safe_name(text):
-    """파일 이름으로 안전한 문자열로 바꿉니다."""
     return re.sub(r"[^\w.\-]", "_", text) or "_"
 
 
@@ -70,7 +74,6 @@ def send_json(sock, obj, lock=None):
 
 
 def iter_messages(sock):
-    """소켓에서 개행으로 구분된 JSON 객체를 하나씩 돌려줍니다."""
     buf = b""
     while True:
         data = sock.recv(BUF)
@@ -88,27 +91,90 @@ def iter_messages(sock):
                 continue
 
 
+# ---------------------------------------------------------------------------
+# 자동 탐색 (UDP 브로드캐스트)
+# ---------------------------------------------------------------------------
+def discover_server(disc_port, timeout=1.0, tries=3):
+    """LAN에 '서버 있나요?'를 뿌리고, 응답한 서버의 (IP, TCP포트)를 돌려줍니다.
+    없으면 None."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    s.settimeout(timeout)
+    try:
+        for _ in range(tries):
+            try:
+                s.sendto(DISCOVER_REQUEST, ("255.255.255.255", disc_port))
+            except OSError:
+                pass
+            try:
+                while True:
+                    data, addr = s.recvfrom(1024)
+                    if data.startswith(DISCOVER_REPLY_PREFIX):
+                        tcp_port = int(data[len(DISCOVER_REPLY_PREFIX):])
+                        return addr[0], tcp_port
+            except socket.timeout:
+                continue
+    finally:
+        s.close()
+    return None
+
+
 # ===========================================================================
 # 서버
 # ===========================================================================
 class ChatServer:
-    def __init__(self, port):
+    def __init__(self, port, reuse=True):
         self.port = port
+        self.disc_port = port + 1
+        self.reuse = reuse
+        self.srv = None
         self.clients = {}          # name -> socket
         self.rooms = {}            # room -> set(names)
         self.lock = threading.Lock()
         self.send_lock = threading.Lock()
 
-    def start(self):
+    def bind(self):
+        """TCP 포트를 잡습니다. 이미 사용 중이면 OSError를 냅니다(= 호스트 선출 실패)."""
         srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        if self.reuse:
+            srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         srv.bind(("0.0.0.0", self.port))
         srv.listen()
-        print(f"[서버 시작] IP: {get_local_ip()}  포트: {self.port}")
-        print("접속자들에게 위 IP/포트를 알려주세요. (종료: Ctrl+C)")
+        self.srv = srv
+
+    def serve_forever(self):
+        threading.Thread(target=self._discovery_loop, daemon=True).start()
         while True:
-            conn, addr = srv.accept()
+            conn, addr = self.srv.accept()
             threading.Thread(target=self._handle, args=(conn, addr), daemon=True).start()
+
+    def start(self):
+        self.bind()
+        print(f"[서버 시작] IP: {get_local_ip()}  포트: {self.port}")
+        print("자동 탐색(UDP)을 지원합니다. 다른 PC는 'python lanpopup.py join <닉네임>' 으로 접속할 수 있습니다.")
+        print("(종료: Ctrl+C)")
+        self.serve_forever()
+
+    # ---- 자동 탐색 응답 ----
+    def _discovery_loop(self):
+        try:
+            u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            u.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            u.bind(("0.0.0.0", self.disc_port))
+        except OSError:
+            return
+        reply = DISCOVER_REPLY_PREFIX + str(self.port).encode()
+        while True:
+            try:
+                data, addr = u.recvfrom(1024)
+            except OSError:
+                break
+            if data.strip().startswith(DISCOVER_REQUEST):
+                try:
+                    u.sendto(reply, addr)
+                except OSError:
+                    pass
 
     # ---- 개별 클라이언트 처리 ----
     def _handle(self, conn, addr):
@@ -163,7 +229,7 @@ class ChatServer:
             out = {"t": "msg", "scope": "dm", "from": name, "to": to, "text": text, "ts": ts}
             self._send_to(to, out)
             if to != name:
-                self._send_to(name, out)   # 보낸 사람 화면에도 표시되도록 echo
+                self._send_to(name, out)
         elif t == "join":
             room = (m.get("room") or "").strip()
             if room:
@@ -186,7 +252,6 @@ class ChatServer:
             for member in members:
                 self._send_to(member, out)
 
-    # ---- 전송 헬퍼 ----
     def _snapshot(self):
         with self.lock:
             users = sorted(self.clients.keys())
@@ -217,7 +282,7 @@ class ChatServer:
 
 
 # ===========================================================================
-# 클라이언트 네트워크 (tkinter 비의존 → 단독 테스트 가능)
+# 클라이언트 네트워크 (tkinter 비의존)
 # ===========================================================================
 class ChatClientNet:
     def __init__(self, host, port, name, event_q):
@@ -225,9 +290,11 @@ class ChatClientNet:
         self.event_q = event_q
         self.sock = None
         self.send_lock = threading.Lock()
+        self.alive = True
 
     def connect(self):
-        self.sock = socket.create_connection((self.host, self.port))
+        self.sock = socket.create_connection((self.host, self.port), timeout=5)
+        self.sock.settimeout(None)
         send_json(self.sock, {"t": "hello", "name": self.name}, self.send_lock)
         threading.Thread(target=self._reader, daemon=True).start()
 
@@ -238,7 +305,15 @@ class ChatClientNet:
         except OSError:
             pass
         finally:
-            self.event_q.put({"t": "_disconnected"})
+            if self.alive:
+                self.event_q.put({"t": "_disconnected"})
+
+    def close(self):
+        self.alive = False
+        try:
+            self.sock.close()
+        except Exception:
+            pass
 
     def _send(self, obj):
         try:
@@ -260,6 +335,42 @@ class ChatClientNet:
 
     def leave_room(self, room):
         self._send({"t": "leave", "room": room})
+
+
+# ===========================================================================
+# 접속 방법 (connector)
+# ===========================================================================
+def connect_to(host, port, name, event_q):
+    net = ChatClientNet(host, port, name, event_q)
+    net.connect()
+    return net, f"접속됨 (호스트: {host})"
+
+
+def establish_auto(port, name, event_q):
+    """자동 모드: 서버를 찾으면 접속, 없으면 스스로 호스트가 됩니다."""
+    disc_port = port + 1
+    found = discover_server(disc_port)
+    if not found:
+        # 호스트가 없어 보이면 내가 호스트가 되어 본다 (포트 바인드로 선출).
+        server = ChatServer(port, reuse=False)
+        try:
+            server.bind()
+        except OSError:
+            server = None  # 다른 PC가 먼저 호스트가 됨 → 아래에서 다시 탐색
+        if server is not None:
+            threading.Thread(target=server.serve_forever, daemon=True).start()
+            time.sleep(0.25)
+            net = ChatClientNet("127.0.0.1", port, name, event_q)
+            net.connect()
+            return net, f"이 PC가 호스트입니다 (IP: {get_local_ip()})"
+        time.sleep(random.uniform(0.3, 0.9))
+        found = discover_server(disc_port)
+    if not found:
+        found = discover_server(disc_port, tries=4)
+    host, tcp_port = found if found else ("127.0.0.1", port)
+    net = ChatClientNet(host, tcp_port, name, event_q)
+    net.connect()
+    return net, f"접속됨 (호스트: {host})"
 
 
 # ===========================================================================
@@ -293,7 +404,6 @@ class History:
         return out
 
     def existing_keys(self):
-        """저장된 대화 키 목록 (파일명 기반)."""
         keys = []
         if os.path.isdir(self.dir):
             for fn in os.listdir(self.dir):
@@ -332,7 +442,8 @@ def flash_window(win, start):
 # ===========================================================================
 # 클라이언트 GUI
 # ===========================================================================
-def run_client(host, port, name):
+def run_gui(port, connector, name):
+    """connector(name, event_q) -> (net, 상태문구). 연결 실패 시 OSError."""
     import tkinter as tk
     from tkinter import simpledialog, messagebox
 
@@ -347,31 +458,32 @@ def run_client(host, port, name):
 
     history = History(name)
     event_q = queue.Queue()
-    net = ChatClientNet(host, port, name, event_q)
 
-    # 상태
     state = {
         "me": name,
         "users": [],
-        "rooms": {},                 # room -> [members]
-        "convs": {},                 # key -> [records]
+        "rooms": {},
+        "convs": {},
         "current": "all",
         "unread": set(),
-        "keys": [],                  # 리스트박스와 대응하는 키 목록
+        "keys": [],
+        "my_rooms": set(),
+        "net": None,
+        "reconnecting": False,
     }
 
-    # 저장된 이전 대화 미리 로드
     for key in history.existing_keys():
         state["convs"][key] = history.load(key)
     state["convs"].setdefault("all", history.load("all"))
 
     try:
-        net.connect()
+        net, role = connector(name, event_q)
     except OSError as e:
-        messagebox.showerror("접속 실패", f"{host}:{port} 에 접속하지 못했습니다.\n서버가 켜져 있는지 확인하세요.\n\n{e}")
+        messagebox.showerror("접속 실패", f"채팅에 연결하지 못했습니다.\n\n{e}")
         return
+    state["net"] = net
 
-    # ---------------- UI 구성 ----------------
+    # ---------------- UI ----------------
     root.deiconify()
     root.title(f"LAN 채팅 - {name}")
     root.geometry("720x460")
@@ -398,7 +510,7 @@ def run_client(host, port, name):
     msg_entry.pack(side="left", fill="x", expand=True)
     paned.add(right)
 
-    status = tk.Label(root, text="연결됨", anchor="w", relief="sunken")
+    status = tk.Label(root, text=role, anchor="w", relief="sunken")
     status.pack(fill="x", side="bottom")
 
     # ---------------- 헬퍼 ----------------
@@ -484,15 +596,15 @@ def run_client(host, port, name):
     # ---------------- 보내기 ----------------
     def do_send(_event=None):
         text = msg_entry.get().strip()
-        if not text:
+        if not text or not state["net"]:
             return
         key = state["current"]
         if key == "all":
-            net.send_all(text)
+            state["net"].send_all(text)
         elif key.startswith("dm:"):
-            net.send_dm(key[3:], text)
+            state["net"].send_dm(key[3:], text)
         elif key.startswith("room:"):
-            net.send_room(key[5:], text)
+            state["net"].send_room(key[5:], text)
         msg_entry.delete(0, "end")
 
     msg_entry.bind("<Return>", do_send)
@@ -506,17 +618,50 @@ def run_client(host, port, name):
     def join_group():
         room = simpledialog.askstring("그룹 참여/만들기", "방 이름:", parent=root)
         if room and room.strip():
-            net.join_room(room.strip())
+            room = room.strip()
+            state["my_rooms"].add(room)
+            if state["net"]:
+                state["net"].join_room(room)
 
     def leave_group():
         key = state["current"]
         if key.startswith("room:"):
-            net.leave_room(key[5:])
+            room = key[5:]
+            state["my_rooms"].discard(room)
+            if state["net"]:
+                state["net"].leave_room(room)
             state["current"] = "all"
 
     tk.Button(btns, text="1:1 대화", command=start_dm).pack(fill="x", pady=1)
     tk.Button(btns, text="그룹 참여/만들기", command=join_group).pack(fill="x", pady=1)
     tk.Button(btns, text="그룹 나가기", command=leave_group).pack(fill="x", pady=1)
+
+    # ---------------- 재연결 / 호스트 자동 전환 ----------------
+    def start_reconnect():
+        if state["reconnecting"]:
+            return
+        state["reconnecting"] = True
+
+        def worker():
+            event_q.put({"t": "_status", "text": "연결 끊김 — 재연결/호스트 전환 시도 중..."})
+            time.sleep(random.uniform(0.2, 1.2))
+            for attempt in range(15):
+                try:
+                    new_net, new_role = connector(state["me"], event_q)
+                except OSError:
+                    event_q.put({"t": "_status", "text": f"재연결 시도 중... ({attempt + 1})"})
+                    time.sleep(1.5)
+                    continue
+                state["net"] = new_net
+                for r in list(state["my_rooms"]):   # 있던 그룹 자동 재참여
+                    new_net.join_room(r)
+                event_q.put({"t": "_status", "text": new_role})
+                state["reconnecting"] = False
+                return
+            event_q.put({"t": "_status", "text": "재연결 실패. 프로그램을 다시 시작하세요."})
+            state["reconnecting"] = False
+
+        threading.Thread(target=worker, daemon=True).start()
 
     # ---------------- 수신 이벤트 처리 ----------------
     def handle_event(m):
@@ -527,6 +672,9 @@ def run_client(host, port, name):
         elif t == "roster":
             state["users"] = m.get("users", [])
             state["rooms"] = {r: list(v) for r, v in m.get("rooms", {}).items()}
+            for r, mem in state["rooms"].items():
+                if state["me"] in mem:
+                    state["my_rooms"].add(r)
             rebuild_list()
         elif t == "msg":
             scope = m.get("scope")
@@ -554,8 +702,11 @@ def run_client(host, port, name):
             state["convs"].setdefault("all", []).append(rec)
             if state["current"] == "all":
                 render()
+        elif t == "_status":
+            status.config(text=m.get("text", ""))
         elif t == "_disconnected":
-            status.config(text="연결이 끊어졌습니다. 프로그램을 다시 시작하세요.")
+            status.config(text="연결이 끊어졌습니다. 재연결을 시도합니다...")
+            start_reconnect()
 
     def poll():
         try:
@@ -573,13 +724,16 @@ def run_client(host, port, name):
 
 # ===========================================================================
 def main():
-    parser = argparse.ArgumentParser(description="LAN 채팅 (서버/클라이언트)")
-    parser.add_argument("--port", type=int, default=PORT, help=f"포트 (기본 {PORT})")
+    parser = argparse.ArgumentParser(description="LAN 채팅 (자동 호스트 / 서버 / 클라이언트)")
+    parser.add_argument("--port", type=int, default=PORT, help=f"채팅 포트 (기본 {PORT})")
     sub = parser.add_subparsers(dest="mode", required=True)
 
-    sub.add_parser("server", help="채팅 서버를 실행합니다")
+    p_join = sub.add_parser("join", help="자동: 호스트를 찾아 접속하거나 스스로 호스트가 됩니다 (권장)")
+    p_join.add_argument("name", nargs="?", default="", help="닉네임 (생략 시 실행 후 입력)")
 
-    p_client = sub.add_parser("client", help="채팅 클라이언트(창)를 실행합니다")
+    sub.add_parser("server", help="이 PC를 고정 호스트(서버)로 실행합니다")
+
+    p_client = sub.add_parser("client", help="특정 서버로 직접 접속합니다")
     p_client.add_argument("host", help="서버 IP 주소")
     p_client.add_argument("name", nargs="?", default="", help="닉네임 (생략 시 실행 후 입력)")
 
@@ -588,7 +742,9 @@ def main():
     if args.mode == "server":
         ChatServer(args.port).start()
     elif args.mode == "client":
-        run_client(args.host, args.port, args.name)
+        run_gui(args.port, lambda nm, q: connect_to(args.host, args.port, nm, q), args.name)
+    elif args.mode == "join":
+        run_gui(args.port, lambda nm, q: establish_auto(args.port, nm, q), args.name)
 
 
 if __name__ == "__main__":
