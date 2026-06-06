@@ -4,3 +4,6 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+
+# 앱 로컬 대화 기록
+lanpopup_history/
