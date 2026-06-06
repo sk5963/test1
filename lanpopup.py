@@ -120,16 +120,55 @@ def discover_server(disc_port, timeout=1.0, tries=3):
     return None
 
 
+def discover_all(disc_port, timeout=0.6, tries=1):
+    """LAN의 모든 호스트를 찾아 [(ip, tcp_port), ...] 로 돌려줍니다 (호스트 모니터용)."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    s.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+    s.settimeout(timeout)
+    found = {}
+    try:
+        for _ in range(tries):
+            try:
+                s.sendto(DISCOVER_REQUEST, ("255.255.255.255", disc_port))
+            except OSError:
+                pass
+            try:
+                while True:
+                    data, addr = s.recvfrom(1024)
+                    if data.startswith(DISCOVER_REPLY_PREFIX):
+                        found[addr[0]] = int(data[len(DISCOVER_REPLY_PREFIX):])
+            except socket.timeout:
+                continue
+    finally:
+        s.close()
+    return list(found.items())
+
+
+def ip_key(ip):
+    """IP를 정렬용 튜플로. 값이 작을수록 우선순위가 높습니다(= 호스트가 됨)."""
+    try:
+        return tuple(int(x) for x in ip.split("."))
+    except (ValueError, AttributeError):
+        return (999, 999, 999, 999)
+
+
+
 # ===========================================================================
 # 서버
 # ===========================================================================
 class ChatServer:
-    def __init__(self, port, reuse=True):
+    def __init__(self, port, reuse=True, enable_monitor=False):
         self.port = port
         self.disc_port = port + 1
         self.reuse = reuse
+        self.enable_monitor = enable_monitor   # 다른(우선순위 높은) 호스트 감지 시 양보
+        self.on_yield = None                   # 양보 직전 호출되는 콜백
         self.srv = None
+        self.udp = None
+        self.stopped = False
         self.clients = {}          # name -> socket
+        self.ips = {}              # name -> ip
         self.rooms = {}            # room -> set(names)
         self.lock = threading.Lock()
         self.send_lock = threading.Lock()
@@ -145,9 +184,62 @@ class ChatServer:
 
     def serve_forever(self):
         threading.Thread(target=self._discovery_loop, daemon=True).start()
-        while True:
-            conn, addr = self.srv.accept()
+        if self.enable_monitor:
+            threading.Thread(target=self._monitor_loop, daemon=True).start()
+        while not self.stopped:
+            try:
+                conn, addr = self.srv.accept()
+            except OSError:
+                break
             threading.Thread(target=self._handle, args=(conn, addr), daemon=True).start()
+
+    def shutdown(self):
+        """서버를 정지합니다 (양보 또는 종료 시)."""
+        if self.stopped:
+            return
+        self.stopped = True
+        for sock in (self.srv, self.udp):
+            try:
+                sock.close()
+            except Exception:
+                pass
+        with self.lock:
+            conns = list(self.clients.values())
+        for c in conns:
+            try:
+                c.close()
+            except Exception:
+                pass
+
+    def _monitor_loop(self):
+        """주기적으로 다른 호스트를 탐색해, 나보다 우선순위가 높은(IP가 낮은)
+        호스트가 있으면 양보합니다. 가장 우선순위 높은 호스트는 절대 양보하지 않아
+        호스트가 하나로 수렴합니다."""
+        self_ip = get_local_ip()
+        while not self.stopped:
+            for _ in range(6):           # 약 3초마다 점검 (정지에 빠르게 반응)
+                time.sleep(0.5)
+                if self.stopped:
+                    return
+            if self._better_host_exists(discover_all(self.disc_port), self_ip):
+                if self.on_yield:        # 더 우선순위 높은 호스트 발견 → 양보
+                    try:
+                        self.on_yield()
+                    except Exception:
+                        pass
+                self.shutdown()
+                return
+
+    @staticmethod
+    def _better_host_exists(others, self_ip):
+        """others = [(ip, port), ...] 중 self보다 우선순위 높은(IP 낮은) 호스트가 있으면 True."""
+        my = ip_key(self_ip)
+        for ip, _p in others:
+            if ip == self_ip or ip.startswith("127."):
+                continue
+            if ip_key(ip) < my:
+                return True
+        return False
 
     def start(self):
         self.bind()
@@ -162,10 +254,11 @@ class ChatServer:
             u = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             u.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             u.bind(("0.0.0.0", self.disc_port))
+            self.udp = u
         except OSError:
             return
         reply = DISCOVER_REPLY_PREFIX + str(self.port).encode()
-        while True:
+        while not self.stopped:
             try:
                 data, addr = u.recvfrom(1024)
             except OSError:
@@ -184,7 +277,10 @@ class ChatServer:
             first = next(msgs)
             if first.get("t") != "hello":
                 return
-            name = self._register(conn, (first.get("name") or "").strip() or f"user{addr[1]}")
+            ip = addr[0]
+            if ip.startswith("127.") or ip == "::1":
+                ip = get_local_ip()   # 호스트 자신의 로컬 접속은 LAN IP로 보정
+            name = self._register(conn, ip, (first.get("name") or "").strip() or f"user{addr[1]}")
             send_json(conn, {"t": "welcome", "name": name}, self.send_lock)
             print(f"[접속] {name} ({addr[0]})")
             self._broadcast({"t": "sys", "text": f"{name} 님이 입장했습니다."})
@@ -199,18 +295,20 @@ class ChatServer:
             if name:
                 self._remove(name)
 
-    def _register(self, conn, requested):
+    def _register(self, conn, ip, requested):
         with self.lock:
             base, name, i = requested, requested, 2
             while name in self.clients:
                 name = f"{base}_{i}"
                 i += 1
             self.clients[name] = conn
+            self.ips[name] = ip
             return name
 
     def _remove(self, name):
         with self.lock:
             self.clients.pop(name, None)
+            self.ips.pop(name, None)
             for members in self.rooms.values():
                 members.discard(name)
             self.rooms = {r: m for r, m in self.rooms.items() if m}
@@ -256,11 +354,12 @@ class ChatServer:
         with self.lock:
             users = sorted(self.clients.keys())
             rooms = {r: sorted(m) for r, m in self.rooms.items() if m}
-        return users, rooms
+            peers = dict(self.ips)
+        return users, rooms, peers
 
     def _broadcast_roster(self):
-        users, rooms = self._snapshot()
-        self._broadcast({"t": "roster", "users": users, "rooms": rooms})
+        users, rooms, peers = self._snapshot()
+        self._broadcast({"t": "roster", "users": users, "rooms": rooms, "peers": peers})
 
     def _broadcast(self, obj):
         with self.lock:
@@ -343,26 +442,30 @@ class ChatClientNet:
 def connect_to(host, port, name, event_q):
     net = ChatClientNet(host, port, name, event_q)
     net.connect()
-    return net, f"접속됨 (호스트: {host})"
+    return net, f"접속됨 (호스트: {host})", host
 
 
 def establish_auto(port, name, event_q):
-    """자동 모드: 서버를 찾으면 접속, 없으면 스스로 호스트가 됩니다."""
+    """자동 모드: 서버를 찾으면 접속, 없으면 스스로 호스트가 됩니다.
+    돌려주는 값: (net, 상태문구, 호스트IP)"""
     disc_port = port + 1
     found = discover_server(disc_port)
     if not found:
         # 호스트가 없어 보이면 내가 호스트가 되어 본다 (포트 바인드로 선출).
-        server = ChatServer(port, reuse=False)
+        server = ChatServer(port, reuse=False, enable_monitor=True)
         try:
             server.bind()
         except OSError:
             server = None  # 다른 PC가 먼저 호스트가 됨 → 아래에서 다시 탐색
         if server is not None:
+            # 더 우선순위 높은 호스트가 나타나면 양보(서버 종료) → 아래 재접속으로 이어짐
+            server.on_yield = lambda: event_q.put(
+                {"t": "_status", "text": "우선순위 높은 호스트 발견 — 양보 후 재접속합니다."})
             threading.Thread(target=server.serve_forever, daemon=True).start()
             time.sleep(0.25)
             net = ChatClientNet("127.0.0.1", port, name, event_q)
             net.connect()
-            return net, f"이 PC가 호스트입니다 (IP: {get_local_ip()})"
+            return net, f"이 PC가 호스트입니다 (IP: {get_local_ip()})", get_local_ip()
         time.sleep(random.uniform(0.3, 0.9))
         found = discover_server(disc_port)
     if not found:
@@ -370,7 +473,7 @@ def establish_auto(port, name, event_q):
     host, tcp_port = found if found else ("127.0.0.1", port)
     net = ChatClientNet(host, tcp_port, name, event_q)
     net.connect()
-    return net, f"접속됨 (호스트: {host})"
+    return net, f"접속됨 (호스트: {host})", host
 
 
 # ===========================================================================
@@ -470,6 +573,8 @@ def run_gui(port, connector, name):
         "my_rooms": set(),
         "net": None,
         "reconnecting": False,
+        "host_ip": None,
+        "peer_ips": {},          # name -> ip (우선순위/순번 계산용)
     }
 
     for key in history.existing_keys():
@@ -477,11 +582,12 @@ def run_gui(port, connector, name):
     state["convs"].setdefault("all", history.load("all"))
 
     try:
-        net, role = connector(name, event_q)
+        net, role, host_ip = connector(name, event_q)
     except OSError as e:
         messagebox.showerror("접속 실패", f"채팅에 연결하지 못했습니다.\n\n{e}")
         return
     state["net"] = net
+    state["host_ip"] = host_ip
 
     # ---------------- UI ----------------
     root.deiconify()
@@ -642,17 +748,28 @@ def run_gui(port, connector, name):
             return
         state["reconnecting"] = True
 
+        def succession_delay():
+            """우선순위(IP) 순번에 비례한 지연. 1순위(IP 최소)가 먼저 호스트가 되도록."""
+            my_ip = get_local_ip()
+            ips = {ip for ip in state["peer_ips"].values() if ip}
+            ips.discard(state.get("host_ip"))   # 방금 사라진 호스트는 후보에서 제외
+            ips.add(my_ip)
+            ordered = sorted(ips, key=ip_key)
+            rank = ordered.index(my_ip) if my_ip in ordered else len(ordered)
+            return rank * 0.7 + random.uniform(0.0, 0.2)
+
         def worker():
-            event_q.put({"t": "_status", "text": "연결 끊김 — 재연결/호스트 전환 시도 중..."})
-            time.sleep(random.uniform(0.2, 1.2))
+            event_q.put({"t": "_status", "text": "연결 끊김 — 순번에 따라 호스트 승계를 시도합니다..."})
+            time.sleep(succession_delay())
             for attempt in range(15):
                 try:
-                    new_net, new_role = connector(state["me"], event_q)
+                    new_net, new_role, new_host = connector(state["me"], event_q)
                 except OSError:
                     event_q.put({"t": "_status", "text": f"재연결 시도 중... ({attempt + 1})"})
                     time.sleep(1.5)
                     continue
                 state["net"] = new_net
+                state["host_ip"] = new_host
                 for r in list(state["my_rooms"]):   # 있던 그룹 자동 재참여
                     new_net.join_room(r)
                 event_q.put({"t": "_status", "text": new_role})
@@ -672,6 +789,7 @@ def run_gui(port, connector, name):
         elif t == "roster":
             state["users"] = m.get("users", [])
             state["rooms"] = {r: list(v) for r, v in m.get("rooms", {}).items()}
+            state["peer_ips"] = dict(m.get("peers", {}))
             for r, mem in state["rooms"].items():
                 if state["me"] in mem:
                     state["my_rooms"].add(r)
