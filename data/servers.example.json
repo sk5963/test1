@@ -1,0 +1,11 @@
+[
+  {
+    "id": "example-1",
+    "label": "예시 FTP 서버",
+    "host": "ftp.example.com",
+    "port": 21,
+    "secure": false,
+    "username": "user",
+    "password": "password"
+  }
+]
