@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="ko">
+  <meta charset="utf-8" /><title>테스트 히스토그램</title
+  ><style>
+    body {
+      font-family: system-ui;
+      padding: 32px;
+      background: #f5f7fb;
+      color: #172b4d;
+    }
+    main {
+      background: white;
+      padding: 28px;
+      border-radius: 16px;
+      max-width: 1000px;
+      margin: auto;
+    }
+    select {
+      padding: 12px;
+      width: 100%;
+      border: 1px solid #ccd5e4;
+      border-radius: 8px;
+    }
+    svg {
+      width: 100%;
+      margin-top: 20px;
+    }
+    p {
+      color: #62718a;
+    }
+  </style>
+  <main>
+    <h1>테스트 히스토그램</h1>
+    <p>원본 변환값 기준 · 테스트 번호가 같아도 열별로 구분합니다.</p>
+    <select id="test"></select>
+    <p id="info"></p>
+    <svg id="chart" viewBox="0 0 900 300"></svg>
+  </main>
+  <script>
+    const tests = __DATA__;
+    const select = document.getElementById("test");
+    tests.forEach((t, i) => {
+      const o = document.createElement("option");
+      o.value = i;
+      o.textContent = t.number + " · " + t.title + " · " + t.unit;
+      select.appendChild(o);
+    });
+    function draw() {
+      const t = tests[select.value || 0];
+      const max = Math.max(1, ...t.counts);
+      document.getElementById("info").textContent =
+        "측정 " +
+        t.count +
+        "개 / 누락 " +
+        t.missing +
+        "개 / 평균 " +
+        (t.mean?.toPrecision(6) || "없음") +
+        " / 표본 표준편차 " +
+        (t.std?.toPrecision(6) || "없음");
+      let s = '<line x1="40" y1="260" x2="880" y2="260" stroke="#ccd5e4"/>';
+      t.counts.forEach((v, i) => {
+        const w = 830 / t.counts.length;
+        const h = (v / max) * 210;
+        s += `<rect x="${40 + i * w}" y="${260 - h}" width="${w * 0.85}" height="${h}" fill="#6366f1"><title>${t.edges[i].toPrecision(5)} ~ ${t.edges[i + 1].toPrecision(5)}: ${v}</title></rect>`;
+      });
+      s += `<text x="40" y="285" font-size="12">${t.edges[0].toPrecision(5)}</text><text x="810" y="285" font-size="12">${t.edges.at(-1).toPrecision(5)}</text>`;
+      document.getElementById("chart").innerHTML = s;
+    }
+    select.onchange = draw;
+    draw();
+  </script>
+</html>

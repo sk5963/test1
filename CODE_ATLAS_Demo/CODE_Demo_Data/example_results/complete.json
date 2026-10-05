@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "run_id": "DEMO_EXAMPLE_0_2_1",
+  "files": [
+    {
+      "path": "report/report.json",
+      "size": 465,
+      "sha256": "e177c541bec0cc5ab9b3e2afacf8289d0ccdbcb9d9c7a8fc64722606878a07ba"
+    },
+    {
+      "path": "report/index.html",
+      "size": 3620,
+      "sha256": "28c8c6a8e9bfb0720ec1d98448c7b51054138bf1e1489e422306b04428113821"
+    },
+    {
+      "path": "conversion/conversion.json",
+      "size": 1981,
+      "sha256": "66eb39bf003594a2c872919cb7ec617bc57b89638c1c69fb1ac188263d0e9a9b"
+    },
+    {
+      "path": "statistics/histograms.json",
+      "size": 612458,
+      "sha256": "8161bba09990ca5c3249d221ed35eec8321d13ad4a9a6eac398a24d58871ce98"
+    },
+    {
+      "path": "statistics/summary.json",
+      "size": 678,
+      "sha256": "8b9893d95a36f2278283df0b657a48fd6f2de7abed449f131acc382a2276d546"
+    },
+    {
+      "path": "statistics/histograms.html",
+      "size": 392620,
+      "sha256": "66b0ef314c567e3469517eff4ef1bba8de8b380ffc70eb2e18de9029f64797d6"
+    },
+    {
+      "path": "statistics/map.svg",
+      "size": 14719,
+      "sha256": "6831d9ac214bd2b42e63c8199b39ddeb02cdd909cb600933dee1617f446cf71a"
+    },
+    {
+      "path": "statistics/measurements.xlsx",
+      "size": 589654,
+      "sha256": "c37bbd7af4c5fc72c33572371ab770eff72a54711b6f9a44a980a7de3e3210e1"
+    },
+    {
+      "path": "statistics/map.json",
+      "size": 11382,
+      "sha256": "e8505a0a42cf3319e3afc849434c80d3217d7284c573094cb7b10efd73cb384a"
+    },
+    {
+      "path": "statistics/statistics.xlsx",
+      "size": 60283,
+      "sha256": "19defbe5e78a623ef3730d8ed005e30c2cc94de3af00a0510b45386c57354c35"
+    }
+  ]
+}

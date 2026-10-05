@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>STDF 변환 Report</title
+  ><style>
+    body {
+      font-family: system-ui;
+      background: #f4f6fb;
+      color: #1e293b;
+      margin: 0;
+      padding: 32px;
+    }
+    main {
+      max-width: 1000px;
+      margin: auto;
+    }
+    section {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 28px;
+      margin: 20px 0;
+    }
+    small,
+    p {
+      color: #64748b;
+    }
+    h1 {
+      font-size: 32px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 14px;
+    }
+    strong {
+      display: block;
+      font-size: 28px;
+      margin-top: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th,
+    td {
+      text-align: left;
+      padding: 13px;
+      border-bottom: 1px solid #eef2f7;
+      overflow-wrap: anywhere;
+    }
+    th {
+      width: 150px;
+      color: #64748b;
+    }
+    a {
+      display: inline-block;
+      padding: 12px;
+      color: #4f46e5;
+    }
+    @media (max-width: 650px) {
+      .cards {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+  <main>
+    <small>자동화 결과물 · 별도 뷰어용 정적 페이지</small>
+    <h1>STDF 변환 Report</h1>
+    <p>DEMO_LOT001 · DEMO_LOT001_W01.stdf</p>
+    <div class="cards">
+      <div class="card">전체 측정<strong>96</strong></div>
+      <div class="card">양품<strong>87</strong></div>
+      <div class="card">수율<strong>90.62%</strong></div>
+      <div class="card">테스트 항목<strong>500</strong></div>
+    </div>
+    <section>
+      <h2>변환 정보</h2>
+      <table>
+        <tr><th>원본 파일</th><td>DEMO_LOT001_W01.stdf</td></tr><tr><th>프로그램</th><td>DEMO_PGM_A</td></tr><tr><th>프로그램 버전</th><td>V1.0</td></tr><tr><th>LOT</th><td>DEMO_LOT001</td></tr><tr><th>변환 시각</th><td>2026-10-05T11:39:28+00:00</td></tr><tr><th>변환 시간</th><td>0.419초</td></tr><tr><th>원본 크기</th><td>2,012,129 바이트</td></tr><tr><th>중간 데이터 포맷</th><td>PARQUET</td></tr><tr><th>중간 데이터 압축</th><td>zstd</td></tr><tr><th>중간 데이터 크기</th><td>452,798 바이트</td></tr><tr><th>원본 SHA-256</th><td>64eb724e61c29ca67b60c7c435ab747f336134d17ef6ed88ca225d1ceed0d449</td></tr><tr><th>중간 데이터 SHA-256</th><td>ab09af21bbb5dc78bface68b515d67f03ea17b34b17085fd988b50693ef9f13c</td></tr>
+      </table>
+    </section>
+    <section>
+      <h2>기본 통계 결과물</h2>
+      <a href="../statistics/histograms.html">히스토그램</a
+      ><a href="../statistics/map.svg">칩 맵</a
+      ><a href="../statistics/statistics.xlsx">기본 통계시트</a>
+      <p>전체 PRR 측정 행 기준. 재시험 포함; 최신 좌표 기준 수율 아님.</p>
+      <p>
+        히스토그램 한계 이탈 수는 표시 리밋 기준이며 DUT 전체 판정과 별개입니다.
+      </p>
+    </section>
+    <section>
+      <h2>처리 기록</h2>
+      <p>
+        기존 바이너리 STDF 엔진 사용 · 가로형 Parquet / CSV 지원 · 도구 버전 0.2.1
+      </p>
+      <p>
+        좌표 누락: 0개 / 원본은 별도 보존하며 중간 데이터는 결과물 생성 후 정리
+        대상입니다.
+      </p>
+    </section>
+    <p><a href="../statistics/measurements.xlsx">전체 측정값 Excel 다운로드</a></p>
+  </main>
+</html>

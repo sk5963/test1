@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="ko">
+  <meta charset="utf-8" /><meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  /><title>STDF 변환 Report</title
+  ><style>
+    body {
+      font-family: system-ui;
+      background: #f4f6fb;
+      color: #1e293b;
+      margin: 0;
+      padding: 32px;
+    }
+    main {
+      max-width: 1000px;
+      margin: auto;
+    }
+    section {
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      padding: 28px;
+      margin: 20px 0;
+    }
+    small,
+    p {
+      color: #64748b;
+    }
+    h1 {
+      font-size: 32px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+    .card {
+      background: white;
+      padding: 24px;
+      border-radius: 14px;
+    }
+    strong {
+      display: block;
+      font-size: 28px;
+      margin-top: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th,
+    td {
+      text-align: left;
+      padding: 13px;
+      border-bottom: 1px solid #eef2f7;
+      overflow-wrap: anywhere;
+    }
+    th {
+      width: 150px;
+      color: #64748b;
+    }
+    a {
+      display: inline-block;
+      padding: 12px;
+      color: #4f46e5;
+    }
+    @media (max-width: 650px) {
+      .cards {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+  </style>
+  <main>
+    <small>자동화 결과물 · 별도 뷰어용 정적 페이지</small>
+    <h1>STDF 변환 Report</h1>
+    <p>$lot · $source_name</p>
+    <div class="cards">
+      <div class="card">전체 측정<strong>$total</strong></div>
+      <div class="card">양품<strong>$passed</strong></div>
+      <div class="card">수율<strong>$yield_percent%</strong></div>
+      <div class="card">테스트 항목<strong>$tests</strong></div>
+    </div>
+    <section>
+      <h2>변환 정보</h2>
+      <table>
+        $rows
+      </table>
+    </section>
+    <section>
+      <h2>기본 통계 결과물</h2>
+      <a href="../statistics/histograms.html">히스토그램</a
+      ><a href="../statistics/map.svg">칩 맵</a
+      ><a href="../statistics/statistics.xlsx">기본 통계시트</a>
+      <p>$policy</p>
+      <p>
+        히스토그램 한계 이탈 수는 표시 리밋 기준이며 DUT 전체 판정과 별개입니다.
+      </p>
+    </section>
+    <section>
+      <h2>처리 기록</h2>
+      <p>
+        기존 바이너리 STDF 엔진 사용 · 가로형 Parquet / CSV 지원 · 도구 버전 $version
+      </p>
+      <p>
+        좌표 누락: $missing개 / 원본은 별도 보존하며 중간 데이터는 결과물 생성 후 정리
+        대상입니다.
+      </p>
+    </section>
+    $measurements_link
+  </main>
+</html>

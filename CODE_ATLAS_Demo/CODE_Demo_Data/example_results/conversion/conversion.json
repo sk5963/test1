@@ -1,0 +1,81 @@
+{
+  "parser": "binary",
+  "output_dir": "/workspace/scratch/2119d5979a1b/review/extracted/CODE_ATLAS_Demo/workspace/runs/20261005T113927-b5f5d322/conversion",
+  "full_csv": null,
+  "pass_csv": "",
+  "ng_csv": "",
+  "rows": 96,
+  "pass_rows": 87,
+  "ng_rows": 9,
+  "written_pass_rows": 0,
+  "written_ng_rows": 0,
+  "items": 500,
+  "elapsed_ms": 188,
+  "parse_elapsed_ms": 176,
+  "csv_bytes": 849207,
+  "stdf_bytes": 2012129,
+  "throughput_mb_s": 10.168272041464778,
+  "bin_stats": {
+    "total": 96,
+    "pass": 87,
+    "fail": 9,
+    "yield_pct": 90.625,
+    "hbin": [
+      {
+        "num": 1,
+        "name": "PASS",
+        "pf": "P",
+        "count": 87,
+        "pct": 90.625
+      },
+      {
+        "num": 2,
+        "name": "FAIL",
+        "pf": "F",
+        "count": 9,
+        "pct": 9.375
+      }
+    ],
+    "sbin": [
+      {
+        "num": 1,
+        "name": "PASS",
+        "pf": "P",
+        "count": 87,
+        "pct": 90.625
+      },
+      {
+        "num": 2,
+        "name": "FAIL",
+        "pf": "F",
+        "count": 9,
+        "pct": 9.375
+      }
+    ]
+  },
+  "metadata": {
+    "lotid": "DEMO_LOT001",
+    "sublotid": "SUB01",
+    "start_t": "2026-10-05 00:00:00",
+    "program": "DEMO_PGM_A",
+    "tester_type": "DEMO_TESTER",
+    "tester_id": "ATE_DEMO",
+    "handler": "",
+    "finish_t": "",
+    "job_rev": "V1.0"
+  },
+  "warnings": [],
+  "schema_version": 2,
+  "tool_version": "0.2.1",
+  "created": "2026-10-05T11:39:28+00:00",
+  "source": "CODE_Demo_Data/samples/DEMO_LOT001_W01.stdf",
+  "source_sha256": "64eb724e61c29ca67b60c7c435ab747f336134d17ef6ed88ca225d1ceed0d449",
+  "csv_sha256": "f2c67b6d3ec12f34042f3c58e3628e7d2541500057015f7d2335b6cd0b67b121",
+  "duration_seconds": 0.419,
+  "format": "wide_parquet_v1",
+  "data_path": "실행 시 conversion 폴더 아래 생성되는 Parquet",
+  "data_sha256": "ab09af21bbb5dc78bface68b515d67f03ea17b34b17085fd988b50693ef9f13c",
+  "data_bytes": 452798,
+  "data_format": "parquet",
+  "compression": "zstd"
+}

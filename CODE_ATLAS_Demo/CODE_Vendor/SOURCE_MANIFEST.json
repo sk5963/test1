@@ -1,0 +1,58 @@
+{
+  "archive": "STDF.zip",
+  "archive_sha256": "d469f5ff3e708f971121c0d62c4b314fa7ce0935073e1a93f590a3b74032fcac",
+  "files": [
+    {
+      "path": "CODE_Vendor/ate_parsers/coordinates.py",
+      "sha256": "0e2de221ea86f62342dfddc9b8d0e72eb5a1c57c7ecfd7c33d52b8289e547f14"
+    },
+    {
+      "path": "CODE_Vendor/ate_parsers/datalog.py",
+      "sha256": "5f48982242dc290355d7b372c0ae4b978ea0908954cd908b08b92f4e81b724bc"
+    },
+    {
+      "path": "CODE_Vendor/ate_parsers/datalog_core.py",
+      "sha256": "c84ca35684efd7edc69a5a6a892698a237d62c4663b8d1366b10344a23878567"
+    },
+    {
+      "path": "CODE_Vendor/ate_parsers/model.py",
+      "sha256": "962fa2c585fa9f5243f5289b21d0f61c4377fa87b03547ede3e2d40b39c39b2b"
+    },
+    {
+      "path": "CODE_Vendor/ate_parsers/numeric_values.py",
+      "sha256": "8a034323cf7752de90f17e8d892338594ed059dba62a43f2db9dff21f73a299c"
+    },
+    {
+      "path": "CODE_Vendor/ate_parsers/row_spool.py",
+      "sha256": "f445f10797f35a79e6affc043c4e7dd7bae112f19767b67796f67c671753c770"
+    },
+    {
+      "path": "CODE_Vendor/ate_parsers/stdf/base.py",
+      "sha256": "71e318c4b9d0b84eaeba009cea4977018efcd82200cd182479b5fd88ad7b7175"
+    },
+    {
+      "path": "CODE_Vendor/ate_parsers/stdf/binary_parser.py",
+      "sha256": "b1e1167e79d2683464530dbd276be77ecc5216b5593e18ab90ee7c69ea26fe94"
+    },
+    {
+      "path": "CODE_Vendor/ate_parsers/stdf/__init__.py",
+      "sha256": "df33cc795a1a67a89001fa661aab8f07415113c5851cf561e0cec21fd48bdf8f"
+    },
+    {
+      "path": "CODE_Vendor/ate_parsers/stdf_metadata.py",
+      "sha256": "6f8dc861e8010c84f4e989ab15072399033f3b129babd9237c9c6dcba9ebc976"
+    },
+    {
+      "path": "CODE_Vendor/ate_parsers/stdf_reader.py",
+      "sha256": "089676c31ec2a7b91822ddf6d8ecc2aad7322f8b4cf941367f4b80ec4fbf522e"
+    },
+    {
+      "path": "CODE_Vendor/ate_parsers/units.py",
+      "sha256": "813a0f752159dee34f5800f9717812b0f41e06ef1dcc118d8a2b89932fa2fd2d"
+    },
+    {
+      "path": "CODE_Vendor/ate_parsers/__init__.py",
+      "sha256": "5dbbf9f30b44ebdaa0afd128b3000acef9882e207e925bf4dae60b57d30ff865"
+    }
+  ]
+}

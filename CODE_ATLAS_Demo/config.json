@@ -1,0 +1,19 @@
+{
+  "schema_version": 1,
+  "transport": "demo",
+  "poll_seconds": 300,
+  "retention_days": 7,
+  "cleanup_enabled": true,
+  "histogram_bins": 20,
+  "ftp": {
+    "host": "ftp.example.invalid",
+    "port": 21,
+    "tls": false,
+    "username_env": "ATLAS_FTP_USER",
+    "password_env": "ATLAS_FTP_PASSWORD",
+    "remote_input": "/ATE/STDF/incoming",
+    "remote_output": "/ATE/results"
+  },
+  "intermediate_format": "parquet",
+  "measurement_excel_enabled": true
+}

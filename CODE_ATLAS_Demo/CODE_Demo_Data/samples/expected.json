@@ -1,0 +1,8 @@
+{
+  "synthetic": true,
+  "parts": 96,
+  "tests": 500,
+  "pass": 87,
+  "fail": 9,
+  "sha256": "64eb724e61c29ca67b60c7c435ab747f336134d17ef6ed88ca225d1ceed0d449"
+}

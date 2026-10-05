@@ -1,0 +1,20 @@
+{
+  "name": "atlas-pipeline-demo",
+  "version": "0.2.1",
+  "description": "ATLAS 파이프라인 자동화 데모",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "check": "node scripts/check.cjs",
+    "test:ipc": "node ../CODE_Tests/ipc_contract.cjs",
+    "test:desktop": "node ../CODE_Tests/ui_smoke.cjs"
+  },
+  "keywords": [],
+  "type": "module",
+  "devDependencies": {
+    "electron": "44.5.1",
+    "playwright-core": "1.62.1",
+    "prettier": "3.9.9"
+  },
+  "private": true
+}

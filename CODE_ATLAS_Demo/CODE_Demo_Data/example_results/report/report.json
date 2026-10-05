@@ -1,0 +1,10 @@
+{
+  "schema_version": 2,
+  "tool_version": "0.2.1",
+  "created": "2026-10-05T11:41:03+00:00",
+  "source_sha256": "64eb724e61c29ca67b60c7c435ab747f336134d17ef6ed88ca225d1ceed0d449",
+  "csv_sha256": "f2c67b6d3ec12f34042f3c58e3628e7d2541500057015f7d2335b6cd0b67b121",
+  "data_sha256": "ab09af21bbb5dc78bface68b515d67f03ea17b34b17085fd988b50693ef9f13c",
+  "data_format": "parquet",
+  "report_sha256": "28c8c6a8e9bfb0720ec1d98448c7b51054138bf1e1489e422306b04428113821"
+}

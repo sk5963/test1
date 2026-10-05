@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'"
+    />
+    <title>ATLAS · 파이프라인 자동화</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">A</div>
+          <div><strong>ATLAS</strong><small>파이프라인 자동화</small></div>
+        </div>
+        <div class="nav-caption">처리 단계</div>
+        <nav id="navigation"></nav>
+        <div class="side-bottom">
+          <div class="engine-status">
+            <span id="engine-dot" class="dot"></span>
+            <div>
+              <strong id="engine-label">엔진 연결 중</strong
+              ><small>화면과 독립된 Python 엔진</small>
+            </div>
+          </div>
+          <div class="version">데모 0.2 · 서버 / 사용자 공용</div>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <div class="breadcrumb">
+              자동화 작업공간 <span>/</span>
+              <span id="breadcrumb-stage">FTP 자료 수신</span>
+            </div>
+            <h1 id="page-title">FTP 자료 수신</h1>
+          </div>
+          <div class="header-actions">
+            <span class="mode-badge" id="transport-label">모의 전송</span
+            ><button class="button ghost" id="refresh-button">새로고침</button
+            ><button class="button primary" id="pipeline-button">
+              전체 파이프라인 실행 <span>↗</span>
+            </button>
+          </div>
+        </header>
+        <div class="tabs" role="tablist" id="tabs"></div>
+        <section class="content" id="content"></section>
+      </main>
+    </div>
+    <div class="toast" id="toast" role="status"></div>
+    <script type="module" src="src/app.js"></script>
+  </body>
+</html>

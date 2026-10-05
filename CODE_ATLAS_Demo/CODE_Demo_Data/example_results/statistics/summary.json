@@ -1,0 +1,25 @@
+{
+  "schema_version": 2,
+  "tool_version": "0.2.1",
+  "created": "2026-10-05T11:39:28+00:00",
+  "data_sha256": "ab09af21bbb5dc78bface68b515d67f03ea17b34b17085fd988b50693ef9f13c",
+  "data_format": "parquet",
+  "csv_sha256": null,
+  "total": 96,
+  "passed": 87,
+  "failed": 9,
+  "yield_percent": 90.625,
+  "test_count": 500,
+  "yield_policy": "전체 PRR 측정 행 기준. 재시험 포함; 최신 좌표 기준 수율 아님.",
+  "map_policy": "동일 좌표의 마지막 측정 행을 표시. 수율은 전체 행 기준.",
+  "measurement_excel": true,
+  "missing_coordinates": 0,
+  "sbin_counts": {
+    "2": 9,
+    "1": 87
+  },
+  "hbin_counts": {
+    "2": 9,
+    "1": 87
+  }
+}
