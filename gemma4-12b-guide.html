@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Gemma 4 12B 설치 및 사용법 가이드 (2026)</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --card: #181b24;
+      --card2: #1f2330;
+      --accent: #4f8cff;
+      --accent2: #7c5cff;
+      --text: #e7e9ee;
+      --muted: #9aa3b2;
+      --border: #2a2f3d;
+      --code-bg: #0b0d13;
+      --green: #2ec27e;
+      --yellow: #f5c542;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo",
+        "Malgun Gothic", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+    }
+    header {
+      background: linear-gradient(135deg, #1a2240 0%, #2a1a40 100%);
+      padding: 56px 20px 48px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    header .badge {
+      display: inline-block;
+      background: rgba(79, 140, 255, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(79, 140, 255, 0.4);
+      padding: 4px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 18px;
+      letter-spacing: 0.3px;
+    }
+    header h1 {
+      margin: 0 0 12px;
+      font-size: 40px;
+      background: linear-gradient(90deg, #6aa3ff, #b08cff);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    header p { margin: 0; color: var(--muted); font-size: 17px; }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 0 20px 80px; }
+    nav.toc {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 20px 24px;
+      margin: 36px 0;
+    }
+    nav.toc h2 { margin: 0 0 12px; font-size: 16px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    nav.toc ul { margin: 0; padding-left: 18px; columns: 2; }
+    nav.toc li { margin-bottom: 6px; }
+    nav.toc a { color: var(--accent); text-decoration: none; }
+    nav.toc a:hover { text-decoration: underline; }
+    section { margin: 48px 0; }
+    section h2 {
+      font-size: 26px;
+      border-left: 4px solid var(--accent);
+      padding-left: 14px;
+      margin-bottom: 18px;
+    }
+    section h3 { font-size: 19px; margin-top: 28px; color: #cdd5e3; }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      gap: 16px;
+      margin: 22px 0;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px;
+    }
+    .card .k { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .card .v { font-size: 18px; font-weight: 700; margin-top: 6px; color: #fff; }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 18px;
+      overflow-x: auto;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+    code {
+      font-family: "JetBrains Mono", "Fira Code", Consolas, Menlo, monospace;
+      color: #d7e0f0;
+    }
+    p code, li code {
+      background: var(--card2);
+      padding: 2px 6px;
+      border-radius: 5px;
+      font-size: 13px;
+      color: #ffd9a0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 18px 0;
+      font-size: 14px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      text-align: left;
+    }
+    th { background: var(--card2); color: #fff; }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+    .note {
+      background: rgba(245, 197, 66, 0.08);
+      border: 1px solid rgba(245, 197, 66, 0.35);
+      border-left: 4px solid var(--yellow);
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 20px 0;
+    }
+    .note strong { color: var(--yellow); }
+    .ok {
+      background: rgba(46, 194, 126, 0.08);
+      border: 1px solid rgba(46, 194, 126, 0.35);
+      border-left: 4px solid var(--green);
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin: 20px 0;
+    }
+    .step {
+      display: flex;
+      gap: 16px;
+      margin: 20px 0;
+      align-items: flex-start;
+    }
+    .step .num {
+      flex: 0 0 auto;
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+    }
+    .step .body { flex: 1; }
+    .tabs-os { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+    .tabs-os span {
+      background: var(--card2);
+      border: 1px solid var(--border);
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 30px 20px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    a.src { color: var(--accent); }
+    .pill {
+      display:inline-block; font-size:12px; padding:2px 8px; border-radius:6px;
+      background: var(--card2); border:1px solid var(--border); color: var(--muted);
+      margin-left:6px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="badge">🆕 2026년 6월 출시 · Apache 2.0</span>
+    <h1>Gemma 4 12B 설치 &amp; 사용법 가이드</h1>
+    <p>구글 DeepMind의 최신 오픈웨이트 멀티모달 모델 — 노트북에서 로컬 실행하기</p>
+  </header>
+
+  <div class="wrap">
+    <nav class="toc">
+      <h2>목차</h2>
+      <ul>
+        <li><a href="#intro">1. Gemma 4 12B란?</a></li>
+        <li><a href="#spec">2. 핵심 스펙</a></li>
+        <li><a href="#hw">3. 하드웨어 요구사항</a></li>
+        <li><a href="#ollama">4. Ollama로 설치 (가장 쉬움)</a></li>
+        <li><a href="#usage">5. 기본 사용법</a></li>
+        <li><a href="#api">6. API로 호출하기</a></li>
+        <li><a href="#python">7. Python / Transformers</a></li>
+        <li><a href="#quant">8. 양자화 옵션</a></li>
+        <li><a href="#faq">9. FAQ &amp; 팁</a></li>
+        <li><a href="#sources">10. 출처</a></li>
+      </ul>
+    </nav>
+
+    <section id="intro">
+      <h2>1. Gemma 4 12B란?</h2>
+      <p>
+        <strong>Gemma 4 12B</strong>는 구글 DeepMind이 <strong>2026년 6월 3일</strong> 공개한
+        120억(12B) 파라미터 규모의 오픈웨이트 모델입니다. Apache 2.0 라이선스로 배포되어 상업적 이용이 자유롭습니다.
+      </p>
+      <p>
+        가장 큰 특징은 <strong>인코더가 없는(encoder-free) 통합 멀티모달 아키텍처</strong>입니다.
+        기존처럼 별도의 비전·오디오 인코더를 거치지 않고 텍스트·이미지·<strong>오디오</strong> 데이터를
+        LLM 백본에 직접 입력하여 멀티모달 지연시간(latency)을 크게 줄였습니다.
+        Gemma 계열 중 <strong>중간 크기 모델로는 처음으로 오디오를 네이티브로 입력</strong>받을 수 있습니다.
+      </p>
+    </section>
+
+    <section id="spec">
+      <h2>2. 핵심 스펙</h2>
+      <div class="grid">
+        <div class="card"><div class="k">파라미터</div><div class="v">12B (Dense)</div></div>
+        <div class="card"><div class="k">컨텍스트 길이</div><div class="v">256K 토큰</div></div>
+        <div class="card"><div class="k">지원 언어</div><div class="v">140개 언어</div></div>
+        <div class="card"><div class="k">입력 모달리티</div><div class="v">텍스트·이미지·오디오</div></div>
+        <div class="card"><div class="k">라이선스</div><div class="v">Apache 2.0</div></div>
+        <div class="card"><div class="k">출시일</div><div class="v">2026-06-03</div></div>
+      </div>
+      <p class="muted">
+        출시 당일부터 Transformers, llama.cpp, MLX, Ollama, LM Studio, vLLM, SGLang, Unsloth,
+        구글 LiteRT-LM 등 주요 런타임을 지원합니다. 가중치는 Hugging Face에서 받을 수 있습니다.
+      </p>
+    </section>
+
+    <section id="hw">
+      <h2>3. 하드웨어 요구사항</h2>
+      <table>
+        <thead>
+          <tr><th>구성</th><th>최소</th><th>권장</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>GPU VRAM (12B, Q4)</td><td>12 GB</td><td>16 GB 이상</td></tr>
+          <tr><td>Apple Silicon (통합 메모리)</td><td>M2 Pro 16GB</td><td>16GB+ 통합 메모리</td></tr>
+          <tr><td>디스크</td><td>~7 GB (Q4_K_M)</td><td>10 GB+ 여유</td></tr>
+          <tr><td>시스템 RAM</td><td>16 GB</td><td>32 GB</td></tr>
+        </tbody>
+      </table>
+      <div class="ok">
+        <strong>✅ 노트북에서 실행 가능:</strong> 16GB VRAM(또는 통합 메모리)을 갖춘 게이밍/크리에이터 노트북,
+        혹은 M2 Pro 16GB 맥북에서 12B 모델을 무리 없이 돌릴 수 있습니다.
+      </div>
+    </section>
+
+    <section id="ollama">
+      <h2>4. Ollama로 설치 (가장 쉬움)</h2>
+
+      <div class="step">
+        <div class="num">1</div>
+        <div class="body">
+          <h3 style="margin-top:0">Ollama 설치</h3>
+          <div class="tabs-os"><span>macOS / Linux</span></div>
+          <pre><code>curl -fsSL https://ollama.ai/install.sh | sh</code></pre>
+          <p class="muted">Windows는 <a class="src" href="https://ollama.com/download" target="_blank" rel="noopener">ollama.com/download</a>에서 설치 프로그램을 받으세요.</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">2</div>
+        <div class="body">
+          <h3 style="margin-top:0">모델 다운로드</h3>
+          <pre><code># 기본 양자화(Q4_K_M, 약 7GB) 다운로드
+ollama pull gemma4:12b</code></pre>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="num">3</div>
+        <div class="body">
+          <h3 style="margin-top:0">바로 대화 시작</h3>
+          <pre><code>ollama run gemma4:12b</code></pre>
+          <p class="muted">프롬프트가 뜨면 바로 질문을 입력할 수 있습니다. 종료는 <code>/bye</code>.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="usage">
+      <h2>5. 기본 사용법</h2>
+
+      <h3>텍스트 대화</h3>
+      <pre><code>ollama run gemma4:12b "양자컴퓨팅을 초등학생도 이해하게 설명해줘"</code></pre>
+
+      <h3>이미지 입력 (멀티모달)</h3>
+      <pre><code>ollama run gemma4:12b "이 스크린샷에 뭐가 보여?" --image ./screenshot.png</code></pre>
+
+      <div class="note">
+        <strong>참고:</strong> Gemma 4 12B는 오디오 입력도 네이티브로 지원합니다. 다만 Ollama 등
+        런타임별로 오디오 입력 지원 시점이 다를 수 있으니, 최신 버전으로 업데이트한 뒤 사용하세요.
+      </div>
+    </section>
+
+    <section id="api">
+      <h2>6. API로 호출하기</h2>
+      <p>Ollama는 OpenAI 호환 엔드포인트를 <code>http://localhost:11434</code>에 제공합니다.</p>
+      <pre><code>curl http://localhost:11434/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gemma4:12b",
+    "messages": [
+      {"role": "user", "content": "안녕! 한 문장으로 자기소개 해줘."}
+    ]
+  }'</code></pre>
+
+      <h3>Python (OpenAI SDK 호환)</h3>
+      <pre><code>from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://localhost:11434/v1",
+    api_key="ollama",  # 임의 값
+)
+
+resp = client.chat.completions.create(
+    model="gemma4:12b",
+    messages=[{"role": "user", "content": "파이썬으로 피보나치 함수 짜줘"}],
+)
+print(resp.choices[0].message.content)</code></pre>
+    </section>
+
+    <section id="python">
+      <h2>7. Python / Transformers로 직접 실행</h2>
+      <p>Hugging Face 가중치를 직접 쓰고 싶다면 Transformers를 사용합니다.</p>
+      <pre><code>pip install -U transformers accelerate torch</code></pre>
+      <pre><code>from transformers import pipeline
+import torch
+
+pipe = pipeline(
+    "text-generation",
+    model="google/gemma-4-12b-it",
+    torch_dtype=torch.bfloat16,
+    device_map="auto",
+)
+
+messages = [{"role": "user", "content": "Gemma 4의 장점을 3가지로 요약해줘"}]
+out = pipe(messages, max_new_tokens=512)
+print(out[0]["generated_text"][-1]["content"])</code></pre>
+      <div class="note">
+        <strong>Tip:</strong> Hugging Face에서 게이트된 모델일 경우 <code>huggingface-cli login</code>으로
+        토큰 인증 후 다운로드하세요. 모델 ID는 배포 채널에 따라 다를 수 있으니 공식 모델 카드를 확인하세요.
+      </div>
+    </section>
+
+    <section id="quant">
+      <h2>8. 양자화 옵션</h2>
+      <p>메모리와 품질의 균형에 따라 양자화 레벨을 고르세요.</p>
+      <table>
+        <thead>
+          <tr><th>양자화</th><th>특징</th><th>권장 메모리</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><code>Q4_0</code></td><td>더 작고 빠름, 품질 약간 하락</td><td>~10 GB</td></tr>
+          <tr><td><code>Q4_K_M</code> <span class="pill">기본값</span></td><td>16GB 환경에 최적 균형</td><td>12–16 GB</td></tr>
+          <tr><td><code>Q5_K_M</code></td><td>더 높은 품질</td><td>16–20 GB</td></tr>
+          <tr><td><code>Q8_0</code></td><td>거의 풀 품질</td><td>24 GB+</td></tr>
+        </tbody>
+      </table>
+      <pre><code># 예: 고품질 Q8 버전 받기
+ollama pull gemma4:12b-q8_0</code></pre>
+      <p class="muted">
+        구글은 토큰을 한 번에 여러 개 예측하는 <strong>MTP(Multi-Token Prediction) 변형</strong>도 제공합니다.
+        품질 손실을 최소화하면서 약 5–15% 빠른 추론을 얻을 수 있습니다.
+      </p>
+    </section>
+
+    <section id="faq">
+      <h2>9. FAQ &amp; 팁</h2>
+      <h3>Q. 모델이 너무 느려요.</h3>
+      <p>GPU 가속이 켜져 있는지 확인하고(<code>ollama ps</code>), VRAM이 부족하면 <code>Q4_0</code> 등
+      더 낮은 양자화로 바꾸세요. CPU만으로 돌리면 매우 느립니다.</p>
+
+      <h3>Q. 다운로드한 모델 목록/삭제는?</h3>
+      <pre><code>ollama list          # 설치된 모델 보기
+ollama rm gemma4:12b # 삭제</code></pre>
+
+      <h3>Q. 4B 같은 더 작은 버전도 있나요?</h3>
+      <p>네, <code>gemma4:4b</code>는 6GB VRAM 정도에서 동작합니다. 가벼운 작업엔 충분합니다.</p>
+
+      <div class="ok">
+        <strong>요약:</strong> <code>ollama pull gemma4:12b</code> → <code>ollama run gemma4:12b</code>
+        두 줄이면 16GB 노트북에서 멀티모달 로컬 AI를 바로 쓸 수 있습니다.
+      </div>
+    </section>
+
+    <section id="sources">
+      <h2>10. 출처</h2>
+      <ul>
+        <li><a class="src" href="https://blog.google/innovation-and-ai/technology/developers-tools/introducing-gemma-4-12b/" target="_blank" rel="noopener">Introducing Gemma 4 12B — Google Blog</a></li>
+        <li><a class="src" href="https://developers.googleblog.com/gemma-4-12b-the-developer-guide/" target="_blank" rel="noopener">Gemma 4 12B: The Developer Guide — Google Developers Blog</a></li>
+        <li><a class="src" href="https://ollama.com/library/gemma4" target="_blank" rel="noopener">gemma4 — Ollama Library</a></li>
+        <li><a class="src" href="https://www.analyticsvidhya.com/blog/2026/06/google-gemma-4-12b/" target="_blank" rel="noopener">Google Gemma 4 12B Hands-on Guide — Analytics Vidhya</a></li>
+        <li><a class="src" href="https://gigazine.net/gsc_news/en/20260604-google-ai-gemma-4-12b/" target="_blank" rel="noopener">Google releases Gemma 4 12B — GIGAZINE</a></li>
+        <li><a class="src" href="https://ai.google.dev/gemma/docs/integrations/ollama" target="_blank" rel="noopener">Run Gemma with Ollama — Google AI for Developers</a></li>
+      </ul>
+    </section>
+  </div>
+
+  <footer>
+    <p>본 문서는 2026년 6월 공개 정보를 바탕으로 작성되었습니다. 최신 명령어·모델 ID는 공식 문서를 확인하세요.</p>
+    <p>Made with ❤️ · <a href="#intro">맨 위로</a></p>
+  </footer>
+</body>
+</html>
