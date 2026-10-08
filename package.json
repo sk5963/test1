@@ -1,0 +1,20 @@
+{
+  "name": "ftp-mobile-viewer",
+  "version": "1.0.0",
+  "description": "모바일 웹브라우저에서 FTP 서버의 파일을 받아 보여주는 뷰어 (이미지/PDF/텍스트)",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "basic-ftp": "^5.0.5",
+    "express": "^4.19.2",
+    "express-session": "^1.18.0"
+  }
+}

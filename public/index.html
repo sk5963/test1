@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1f6feb" />
+  <title>FTP 모바일 뷰어</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <!-- 코드 구문 강조 (CDN) -->
+  <link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"
+  />
+</head>
+<body>
+  <header class="topbar">
+    <button id="backBtn" class="icon-btn" hidden aria-label="뒤로">‹</button>
+    <h1 id="title" class="title">FTP 서버</h1>
+    <button id="changeServerBtn" class="text-btn" hidden>서버 변경</button>
+  </header>
+
+  <!-- 1) 서버 선택/관리 화면 -->
+  <section id="serversView" class="view">
+    <div id="serverList" class="card-list"></div>
+    <button id="addServerBtn" class="primary-btn full">+ FTP 서버 추가</button>
+  </section>
+
+  <!-- 2) 파일 탐색 화면 -->
+  <section id="filesView" class="view" hidden>
+    <nav id="breadcrumb" class="breadcrumb"></nav>
+    <ul id="fileList" class="file-list"></ul>
+  </section>
+
+  <!-- 3) 뷰어 화면 -->
+  <section id="viewerView" class="view viewer" hidden>
+    <div id="viewerContent" class="viewer-content"></div>
+    <div class="viewer-actions">
+      <a id="downloadLink" class="primary-btn" download>다운로드</a>
+    </div>
+  </section>
+
+  <!-- 서버 추가/수정 모달 -->
+  <div id="serverModal" class="modal" hidden>
+    <div class="modal-box">
+      <h2 id="modalTitle">FTP 서버 추가</h2>
+      <form id="serverForm">
+        <input type="hidden" name="id" />
+        <label>이름(라벨)<input name="label" placeholder="예: 사무실 NAS" /></label>
+        <label>호스트 주소 *<input name="host" placeholder="ftp.example.com 또는 192.168.0.10" required /></label>
+        <label>포트<input name="port" type="number" value="21" /></label>
+        <label class="row">
+          <input name="secure" type="checkbox" /> FTPS(보안 연결) 사용
+        </label>
+        <label>사용자명 *<input name="username" autocomplete="username" required /></label>
+        <label>비밀번호<input name="password" type="password" autocomplete="current-password" placeholder="수정 시 비우면 기존 값 유지" /></label>
+        <div class="modal-actions">
+          <button type="button" id="cancelModalBtn" class="text-btn">취소</button>
+          <button type="submit" class="primary-btn">저장</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 로딩/토스트 -->
+  <div id="loading" class="loading" hidden><div class="spinner"></div></div>
+  <div id="toast" class="toast" hidden></div>
+
+  <!-- 라이브러리 (CDN). PDF.js는 app.js에서 동적 import 한다. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="/js/app.js" type="module"></script>
+</body>
+</html>
